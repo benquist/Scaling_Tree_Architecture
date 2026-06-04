@@ -1,0 +1,19 @@
+Package: scalingPlantArchitecture
+Title: Scaling Plant Architecture Under WBE-Inspired Branching
+Version: 0.1.0
+Authors@R: person("Brian", "Jenquist", role = c("aut", "cre"), email = "author@example.com")
+Description: Simulates asymmetric branching trees with variable path lengths,
+    draws Smith-style architecture figures, and computes analytical and
+    simulation-based scaling implications in a WBE-inspired framework.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    dplyr,
+    ggplot2,
+    tibble,
+    stats
+Suggests:
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

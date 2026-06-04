@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tree Architecture Simulator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <h1>Tree Architecture Simulator</h1>
+    <span class="hero-sub">Smith path fraction · WBE allometry · Ontogenetic scaling</span>
+  </header>
+
+  <div class="app-layout">
+
+    <!-- ── Left sidebar: controls ── -->
+    <aside class="controls" aria-label="Simulation controls">
+
+      <div class="ctrl-header">
+        <span class="ctrl-title">Controls</span>
+        <button id="wbeSnapBtn" class="wbe-btn" type="button">⬡ WBE Optimal</button>
+      </div>
+
+      <!-- Branching geometry -->
+      <div class="slider-group">
+
+        <div class="slider-row">
+          <label for="pathFraction">Main-branch bias</label>
+          <div class="slider-wrap" data-wbe="0.5" data-min="0" data-max="1">
+            <input id="pathFraction" type="range" min="0" max="1" step="0.01" value="0.68">
+            <div class="wbe-tick" title="WBE optimum: 0.50 (symmetric allocation)"></div>
+          </div>
+          <output id="pathFractionValue">0.68</output>
+        </div>
+
+        <div class="slider-row">
+          <label for="asymStrength">Asymmetry</label>
+          <div class="slider-wrap" data-wbe="0" data-min="0" data-max="1">
+            <input id="asymStrength" type="range" min="0" max="1" step="0.01" value="0.65">
+            <div class="wbe-tick" title="WBE optimum: 0.00 (symmetric)"></div>
+          </div>
+          <output id="asymStrengthValue">0.65</output>
+        </div>
+
+        <div class="slider-row">
+          <label for="lengthDecay">Length decay</label>
+          <div class="slider-wrap" data-wbe="0.794" data-min="0.3" data-max="0.95">
+            <input id="lengthDecay" type="range" min="0.3" max="0.95" step="0.01" value="0.78">
+            <div class="wbe-tick" title="WBE optimum: 0.794 = 2⁻¹/³ (volume-filling)"></div>
+          </div>
+          <output id="lengthDecayValue">0.78</output>
+        </div>
+
+        <div class="slider-row">
+          <label for="radiusDecay">Radius decay</label>
+          <div class="slider-wrap" data-wbe="0.707" data-min="0.3" data-max="0.95">
+            <input id="radiusDecay" type="range" min="0.3" max="0.95" step="0.01" value="0.79">
+            <div class="wbe-tick" title="WBE optimum: 0.707 = 2⁻¹/² (area-preserving)"></div>
+          </div>
+          <output id="radiusDecayValue">0.79</output>
+        </div>
+
+        <div class="slider-row">
+          <label for="branchProb">Branch prob.</label>
+          <div class="slider-wrap" data-wbe="1.0" data-min="0.1" data-max="1">
+            <input id="branchProb" type="range" min="0.1" max="1" step="0.01" value="0.98">
+            <div class="wbe-tick" title="WBE optimum: 1.00 (always bifurcate)"></div>
+          </div>
+          <output id="branchProbValue">0.98</output>
+        </div>
+
+        <div class="slider-row">
+          <label for="maxDepth">Max depth</label>
+          <div class="slider-wrap">
+            <input id="maxDepth" type="range" min="3" max="16" step="1" value="10">
+          </div>
+          <output id="maxDepthValue">10</output>
+        </div>
+
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Size class controls -->
+      <div class="slider-group">
+
+        <div class="slider-row">
+          <label for="minTips">Min tips</label>
+          <div class="slider-wrap">
+            <input id="minTips" type="range" min="4" max="128" step="1" value="16">
+          </div>
+          <output id="minTipsValue">16</output>
+        </div>
+
+        <div class="slider-row">
+          <label for="maxTips">Max tips</label>
+          <div class="slider-wrap">
+            <input id="maxTips" type="range" min="16" max="512" step="1" value="128">
+          </div>
+          <output id="maxTipsValue">128</output>
+        </div>
+
+        <div class="slider-row">
+          <label for="classCount">Size classes</label>
+          <div class="slider-wrap">
+            <input id="classCount" type="range" min="2" max="8" step="1" value="4">
+          </div>
+          <output id="classCountValue">4</output>
+        </div>
+
+        <div class="check-row">
+          <label for="balancedWbeMode">
+            <input id="balancedWbeMode" type="checkbox" checked>
+            Balanced WBE check mode
+          </label>
+        </div>
+
+        <div class="slider-row">
+          <label for="seed">Seed</label>
+          <div class="slider-wrap">
+            <input id="seed" type="range" min="1" max="999" step="1" value="42">
+          </div>
+          <output id="seedValue">42</output>
+        </div>
+
+      </div>
+
+      <p class="size-preview" id="sizeClassPreview">Classes: 16, 32, 64, 128</p>
+
+      <button id="generateBtn" class="gen-btn" type="button">▶ Generate</button>
+
+      <p class="hint">First branch = single trunk (no base furcation).</p>
+      <p class="hint wbe-hint">│ Orange tick = WBE optimum value.</p>
+      <p class="hint">Balanced mode uses power-of-two tip targets to reduce stopping-rule bias in slope checks.</p>
+
+      <section class="param-guide" aria-label="Parameter guide">
+        <h3>Parameter guide</h3>
+        <p><strong>Seed:</strong> Sets the pseudo-random branching stream. Same seed + settings gives the same trees. Different seeds change realized trees, so fitted exponents can shift.</p>
+        <p><strong>Max depth:</strong> Maximum branching generations. Higher values allow longer paths and more terminal tips before growth is capped.</p>
+        <p><strong>Main-branch bias (control):</strong> Preferred share of continuation along the main branch lineage during a split.</p>
+        <p><strong>Asymmetry:</strong> How strongly that preference is enforced. At 0, splits are near symmetric; at 1, main-vs-side allocation is strongly skewed.</p>
+        <p><strong>Smith path fraction (reported):</strong> $P_f = \bar{L_l}/L_l^*$, where $L_l^*$ is max root-to-tip path length. In ideal WBE-symmetric trees this approaches 1.0.</p>
+      </section>
+
+    </aside>
+
+    <!-- ── Right: main area ── -->
+    <div class="main-col">
+
+      <!-- Tree panel with base-aligned size strip -->
+      <div class="top-row">
+
+        <section class="panel tree-panel" aria-labelledby="tree-title">
+          <h2 id="tree-title">Selected Tree</h2>
+          <div class="tree-meta" id="treeMeta"></div>
+          <svg id="treeSvg" viewBox="0 0 900 480" role="img" aria-label="Simulated branching tree"></svg>
+          <div id="treeStrip" class="tree-strip" role="group" aria-label="Size class comparison"></div>
+        </section>
+
+      </div>
+
+      <!-- Bottom: tabbed panel -->
+      <section class="panel bottom-panel" aria-label="Diagnostics">
+
+        <div class="tab-bar">
+          <button class="tab-btn active" data-tab="paths"    type="button">Path Distributions</button>
+          <button class="tab-btn"        data-tab="diameter" type="button">Diameter-based</button>
+          <button class="tab-btn"        data-tab="leaf" type="button">Leaf-based</button>
+        </div>
+
+        <!-- Tab: path distributions -->
+        <div class="tab-content" id="tab-paths">
+          <div class="charts-grid">
+            <div class="chart-box">
+              <h3>Within selected tree</h3>
+              <canvas id="withinHist" width="560" height="165"></canvas>
+            </div>
+            <div class="chart-box">
+              <h3>Across size classes</h3>
+              <canvas id="acrossHist" width="560" height="165"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: diameter-based allometries -->
+        <div class="tab-content hidden" id="tab-diameter">
+          <div class="allometry-grid">
+            <div class="chart-box"><canvas id="alloStemVol"     width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloHeight"      width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloMaxPath"     width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloMeanPath"    width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloTotalLen"    width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloPF"          width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloSizeMeanPath" width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloSizeVarPath"  width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloSizeMaxPath"  width="400" height="165"></canvas></div>
+          </div>
+          <section class="equation-panel" aria-label="Diameter allometry equations">
+            <h3>Estimated Equations</h3>
+            <div id="eqDiameter" class="equation-list"></div>
+          </section>
+        </div>
+
+        <!-- Tab: leaf-based allometries -->
+        <div class="tab-content hidden" id="tab-leaf">
+          <div class="allometry-grid">
+            <div class="chart-box"><canvas id="alloStemVol2"    width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloHeight2"     width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloMaxPath2"    width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloMeanPath2"   width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloTotalLen2"   width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloPF2"         width="400" height="165"></canvas></div>
+          </div>
+          <section class="equation-panel" aria-label="Leaf allometry equations">
+            <h3>Estimated Equations</h3>
+            <div id="eqLeaf" class="equation-list"></div>
+          </section>
+        </div>
+
+      </section>
+
+    </div><!-- /main-col -->
+  </div><!-- /app-layout -->
+
+  <script src="script.js"></script>
+</body>
+</html>

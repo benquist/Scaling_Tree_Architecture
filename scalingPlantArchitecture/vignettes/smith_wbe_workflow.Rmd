@@ -1,0 +1,123 @@
+---
+title: "Smith-Style Tree Simulation and WBE Scaling Workflow"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.width = 6.4, fig.height = 4.8, dpi = 150)
+pkg_root <- normalizePath("..")
+r_files <- list.files(file.path(pkg_root, "R"), full.names = TRUE)
+invisible(lapply(r_files, source))
+```
+
+## Purpose
+
+This vignette gives a practical end-to-end workflow for the
+`scalingPlantArchitecture` package:
+
+- generate branching trees under controlled asymmetry;
+- compute shape and scaling diagnostics;
+- compare finite-size simulation behavior to analytical symmetric baselines.
+
+The examples are intentionally lightweight so they run quickly during checks.
+
+## Parameterization and reproducibility
+
+```{r}
+p <- new_spa_params(
+	max_order = 9,
+	path_fraction = 0.68,
+	seed = 42,
+	length_decay = 0.78,
+	radius_decay = 0.79,
+	branch_prob = 0.98
+)
+
+p
+```
+
+## Generate a tree
+
+```{r}
+tr <- simulate_branching_tree(p)
+plot_tree(
+	tr,
+	preset = "publication",
+	highlight_main_path = TRUE,
+	title = "Simulated asymmetric branching architecture",
+	subtitle = "Branch width is scaled by conduit-radius proxy"
+)
+```
+
+## Build Smith-style tree panel
+
+```{r, fig.width=11, fig.height=3.8}
+plot_smith_tree_panel(
+	c(0.29, 0.51, 0.68, 1.00),
+	base_params = p,
+	preset = "publication",
+	show_order_tone = TRUE,
+	highlight_main_path = FALSE
+)
+```
+
+## Core metrics for one tree
+
+```{r}
+m <- compute_scaling_metrics(tr)
+m
+```
+
+## Ensemble scaling diagnostics
+
+```{r}
+p_fast <- new_spa_params(max_order = 7, path_fraction = 0.68, seed = 42)
+ens <- analyze_ensemble(path_fraction_values = c(0.29, 0.51, 0.68, 1.00), n_rep = 8, base_params = p_fast)
+plot_pathfraction_scaling(ens$metrics, preset = "publication", show_ci = TRUE)
+ens$fits
+```
+
+## Workflow helper for summary tables and baselines
+
+```{r}
+exp_out <- run_scaling_experiment(
+	path_fraction_values = c(0.29, 0.51, 0.68, 1.00),
+	n_rep = 8,
+	base_params = p_fast
+)
+
+exp_out$summary
+head(exp_out$analytical_baseline$table)
+```
+
+## Per-tree allometries
+
+```{r, fig.width=10, fig.height=6}
+plot_tree_allometries(tr, preset = "publication", show_ci = TRUE)
+
+allom <- compute_tree_allometries(tr)
+allom$summary
+```
+
+## Path-length frequency distributions
+
+```{r, fig.width=7.5, fig.height=4.5}
+plot_path_length_distribution(tr, endpoint = "tips", bins = 20, preset = "publication")
+plot_path_length_distribution(tr, endpoint = "all_nodes", bins = 20, preset = "publication")
+```
+
+## Symmetric analytical baseline
+
+```{r}
+ana <- analytic_symmetric_wbe(max_order = 12)
+head(ana$table)
+ana$exponent
+```
+
+## Interpretation notes
+
+- Finite-depth trees can deviate from asymptotic scaling exponents.
+- Different seeds alter realized geometry and may shift fitted slopes.
+- Use ensemble summaries (`analyze_ensemble`) for stable comparisons.
+- Treat symmetric analytical baselines as reference limits, not guaranteed
+	finite-size outcomes.
