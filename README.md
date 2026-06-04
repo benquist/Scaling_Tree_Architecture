@@ -84,6 +84,7 @@ ens$fits
 
 A worked vignette is included at:
 - `scalingPlantArchitecture/vignettes/smith_wbe_workflow.Rmd`
+- `scalingPlantArchitecture/vignettes/smith_wbe_workflow.html`
 
 It demonstrates:
 - tree generation;
@@ -93,6 +94,10 @@ It demonstrates:
 - analytical symmetric baseline checks.
 
 ## JavaScript app quick start
+
+Interactive tool links in this GitHub repository:
+- Source file: `js-tree-simulator/index.html`
+- Browser preview: https://htmlpreview.github.io/?https://raw.githubusercontent.com/benquist/Scaling_Tree_Architecture/main/js-tree-simulator/index.html
 
 1. Open `js-tree-simulator/index.html` in a modern browser.
 2. Tune controls for branching geometry and class sampling.
