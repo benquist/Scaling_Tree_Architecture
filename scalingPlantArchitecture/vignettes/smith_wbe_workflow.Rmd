@@ -38,6 +38,90 @@ p <- new_spa_params(
 p
 ```
 
+## JavaScript simulator examples mirrored in R
+
+The JavaScript simulator in `js-tree-simulator/index.html` is the browser-facing version of the same model family. The examples below mirror the settings I use most often in the browser and show the package-side outputs that match those diagnostics.
+
+### WBE-like baseline
+
+This is the closest package-side analogue to the simulator's WBE reference button.
+
+```{r wbe-baseline, fig.width=9, fig.height=6}
+p_wbe <- new_spa_params(
+	max_order = 9,
+	path_fraction = 0.50,
+	asymmetry_strength = 0.00,
+	length_decay = 0.794,
+	radius_decay = 0.707,
+	branch_prob = 1.00,
+	seed = 42
+)
+
+tr_wbe <- simulate_branching_tree(p_wbe)
+plot_tree_teaching_dashboard(
+	tr_wbe,
+	preset = "publication",
+	bins = 20,
+	endpoint = "tips"
+)
+```
+
+### Asymmetric canopy example
+
+This example uses a stronger main-path bias and asymmetry so the resulting tree departs from the symmetric WBE baseline.
+
+```{r asym-canopy, fig.width=9, fig.height=6}
+p_asym <- new_spa_params(
+	max_order = 9,
+	path_fraction = 0.68,
+	asymmetry_strength = 0.65,
+	length_decay = 0.78,
+	radius_decay = 0.79,
+	branch_prob = 0.98,
+	seed = 42
+)
+
+tr_asym <- simulate_branching_tree(p_asym)
+plot_tree_teaching_dashboard(
+	tr_asym,
+	preset = "publication",
+	bins = 20,
+	endpoint = "tips"
+)
+```
+
+### Broad size-range sweep and finite-size diagnostics
+
+The browser app now supports very broad size ranges, including `min tips = 1`, `max tips = 1000`, and `size classes = 10`. The package reproduces the diagnostic idea by sweeping path fractions and inspecting how the fitted slopes change with scale.
+
+```{r size-sweep, fig.width=9, fig.height=6}
+sim_example <- analyze_ensemble(
+	path_fraction_values = c(0.29, 0.51, 0.68, 1.00),
+	n_rep = 12,
+	base_params = p_asym
+)
+
+plot_pathfraction_scaling(
+	sim_example$metrics,
+	preset = "publication",
+	show_ci = TRUE
+)
+```
+
+```{r smith-panel, fig.width=9, fig.height=6}
+plot_smith_tree_panel(
+	c(0.29, 0.51, 0.68, 1.00),
+	base_params = p_asym,
+	preset = "publication",
+	show_order_tone = TRUE,
+	highlight_main_path = TRUE
+)
+```
+
+```{r theory-compare, fig.width=9, fig.height=6}
+plot_tree_allometries(tr_asym, preset = "publication")
+```
+
 ## Generate a tree
 
 ```{r}

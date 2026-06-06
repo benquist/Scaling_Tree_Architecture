@@ -1,0 +1,97 @@
+Merge timestamp: 20260606_082931
+Canonical: Scaling_Tree_Architecture_clean
+Sources: scaling plant architecture | Scaling_Tree_Architecture | Scaling_Tree_Architecture_clean2
+
+== Source: scaling plant architecture ==
+New files copied:
+.DS_Store
+README_smith_component.md
+scalingPlantArchitecture_0.1.0.tar.gz
+js-tree-simulator/smith-model.css
+js-tree-simulator/smith-model.html
+js-tree-simulator/smith-model.js
+scalingPlantArchitecture/README_smith_component.md
+scalingPlantArchitecture/scalingPlantArchitecture_0.1.0.tar.gz
+scalingPlantArchitecture/R/smith_module.R
+scalingPlantArchitecture/R/smith_plotting.R
+scalingPlantArchitecture/R/tradeoff_surface.R
+scalingPlantArchitecture/tests/testthat/Rplots.pdf
+scalingPlantArchitecture/tests/testthat/test-smith-module.R
+scalingPlantArchitecture/tests/testthat/test-smith-plotting.R
+scalingPlantArchitecture/tests/testthat/test-tradeoff-surface.R
+scalingPlantArchitecture/vignettes/wbe_optimality_assessment.Rmd
+scalingPlantArchitecture/vignettes/wbe_optimality_assessment.html
+
+== Source: Scaling_Tree_Architecture ==
+New files copied:
+
+== Source: Scaling_Tree_Architecture_clean2 ==
+New files copied:
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/bootstrap-theme.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/bootstrap-theme.css.map
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/bootstrap-theme.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/bootstrap.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/bootstrap.css.map
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/bootstrap.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/cerulean.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/cosmo.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/darkly.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/flatly.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/journal.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/lumen.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/paper.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/readable.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/sandstone.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/simplex.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/spacelab.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/united.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/yeti.min.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/Lato.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/LatoBold.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/LatoItalic.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/NewsCycle.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/NewsCycleBold.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/OpenSans.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/OpenSansBold.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/OpenSansBoldItalic.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/OpenSansItalic.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/OpenSansLight.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/OpenSansLightItalic.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/Raleway.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/RalewayBold.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/Roboto.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/RobotoBold.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/RobotoLight.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/RobotoMedium.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/SourceSansPro.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/SourceSansProBold.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/SourceSansProItalic.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/SourceSansProLight.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/css/fonts/Ubuntu.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/fonts/glyphicons-halflings-regular.eot
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/fonts/glyphicons-halflings-regular.svg
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/fonts/glyphicons-halflings-regular.ttf
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/fonts/glyphicons-halflings-regular.woff
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/fonts/glyphicons-halflings-regular.woff2
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/js/bootstrap.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/js/bootstrap.min.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/js/npm.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/shim/html5shiv.min.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/bootstrap-3.3.5/shim/respond.min.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/figure-html/unnamed-chunk-2-1.png
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/figure-html/unnamed-chunk-3-1.png
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/figure-html/unnamed-chunk-5-1.png
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/figure-html/unnamed-chunk-7-1.png
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/figure-html/unnamed-chunk-8-1.png
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/figure-html/unnamed-chunk-8-2.png
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/header-attrs-2.31/header-attrs.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/highlightjs-9.12.0/default.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/highlightjs-9.12.0/highlight.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/highlightjs-9.12.0/textmate.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/jquery-3.6.0/jquery-3.6.0.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/jquery-3.6.0/jquery-3.6.0.min.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/jquery-3.6.0/jquery-3.6.0.min.map
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/navigation-1.1/codefolding-lua.css
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/navigation-1.1/codefolding.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/navigation-1.1/sourceembed.js
+scalingPlantArchitecture/vignettes/smith_wbe_workflow_files/navigation-1.1/tabsets.js

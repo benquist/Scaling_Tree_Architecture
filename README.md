@@ -109,6 +109,28 @@ Interactive tool links in this GitHub repository:
 
 The app displays theory-vs-fit comparisons (`b_th`, `b`, `b_inf`, `Deltafit`, `Deltaasym`) to help identify potential mismatches.
 
+### Example browser setups
+
+These are the most useful starting points in the simulator:
+
+1. WBE-like baseline
+  - Click **WBE Optimal**.
+  - This sets `main-branch bias = 0.50`, `Asymmetry = 0.00`, `Length decay = 0.794`, `Radius decay = 0.707`, and `Branch prob. = 1.00`.
+  - Use this when you want a theory reference close to the symmetric WBE limit.
+2. Asymmetric canopy example
+  - Set `Main-branch bias = 0.68`, `Asymmetry = 0.65`, `Length decay = 0.78`, `Radius decay = 0.79`, and `Branch prob. = 0.98`.
+  - This is a good example for seeing how finite trees drift away from the analytical baseline.
+3. Broad size-range sweep
+  - Set `Min tips = 1`, `Max tips = 1000`, and `Size classes = 10`.
+  - Use this when you want a large spread in size classes for slope-vs-size diagnostics and finite-size convergence.
+
+The simulator's equation cards explain how to read these outputs:
+- `Fit` is the empirical slope from the plotted points.
+- `Asymptote` is the estimated large-size limit from finite-size convergence.
+- `Theory` is the WBE-style baseline for the currently selected parameters.
+- `Finite-size` reports the fitted convergence law `b_eff(S) = b_inf + c/S`.
+- `Deltafit` and `Deltaasym` compare the empirical and asymptotic slopes to the theory line.
+
 ## Typical workflow
 
 1. Choose a baseline parameter set in R with `new_spa_params()`.
@@ -117,6 +139,19 @@ The app displays theory-vs-fit comparisons (`b_th`, `b`, `b_inf`, `Deltafit`, `D
 4. Compare fitted exponents to analytical expectations.
 5. Stress-test assumptions interactively in the JavaScript app.
 6. Record settings, seeds, and caveats in provenance logs.
+
+## Generated examples
+
+The vignette renders several figures that mirror the simulator settings above and show the package-side equivalents of the browser diagnostics. Those figures are generated directly from the code, so they can be regenerated from the vignette source at any time.
+
+- `scalingPlantArchitecture/vignettes/smith_wbe_workflow.html` for the rendered walkthrough
+- `scalingPlantArchitecture/vignettes/smith_wbe_workflow.Rmd` for the source examples and plots
+
+Static previews saved with the current docs:
+
+![Tree Architecture Simulator screenshot](js-tree-simulator/assets/js-tree-simulator-example.png)
+
+![Path-fraction scaling example](assets/pathfraction_scaling_example.png)
 
 ## Reproducibility notes
 
