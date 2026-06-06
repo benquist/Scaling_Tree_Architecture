@@ -4,6 +4,11 @@
 - Prompt: Create a new project folder for scaling plant architecture and build an R package that draws Smith-style asymmetric branching trees and analyzes scaling implications under WBE theory.
 - Actions: Created new project folder and package scaffold at scaling plant architecture/scalingPlantArchitecture with simulation, plotting, analytics, tests, and vignette files.
 
+
+## 2026-06-06
+- Prompt: Merge duplicate scaling project folders into one canonical folder, remove redundancy, and back up to GitHub without losing work.
+- Actions: Chose `Scaling_Tree_Architecture_clean` as canonical active folder. Safely merged unique files from `scaling plant architecture`, `Scaling_Tree_Architecture`, and `Scaling_Tree_Architecture_clean2` into canonical using non-overwriting `rsync` with a generated manifest at `merge_reports/merge_manifest_20260606_082931.txt`. Moved source folders to timestamped archive paths under `/Users/brianjenquist/VSCode/archived_scaling_folders/` to prevent data loss while removing active redundancy.
+- Backup: Committed consolidated state (`8ec9590`) and pushed to `origin/main` at `https://github.com/benquist/Scaling_Tree_Architecture.git`.
 ## 2026-06-04
 - Prompt: Double-check the allometry prediction math against branching traits and ensure predictions change when lengthDecay and radiusDecay sliders change.
 - What was incorrect:
