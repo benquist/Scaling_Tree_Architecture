@@ -88,3 +88,8 @@
 	- Expanded vignette `scalingPlantArchitecture/vignettes/smith_wbe_workflow.Rmd` with parameterization, single-tree metrics, workflow helper usage, and interpretation notes; re-rendered HTML output.
 	- Ran specialist reviews from `ecology-user`, `scholarly-rigor-reviewer`, and `enhanced-theory`; applied wording/theory fidelity updates from review findings.
 - Outcome: Repository is publication-ready as a backup/workspace for scaling architecture analyses with strengthened scientific caveats, clearer theory statement, and an updated worked vignette.
+
+## 2026-06-06
+- Prompt: "yes" (follow-up to remove redundant build artifacts from the consolidated canonical repo).
+- Actions: Removed generated artifacts from `Scaling_Tree_Architecture_clean` while preserving source files: `scalingPlantArchitecture_0.1.0.tar.gz`, `scalingPlantArchitecture/scalingPlantArchitecture_0.1.0.tar.gz`, and `scalingPlantArchitecture/tests/testthat/Rplots.pdf`.
+- Backup: Committed cleanup as `c6378db` and pushed to `origin/main` at `https://github.com/benquist/Scaling_Tree_Architecture.git`.
