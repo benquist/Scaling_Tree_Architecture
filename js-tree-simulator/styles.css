@@ -213,6 +213,32 @@ body {
   color: #1f252a;
 }
 
+.equation-help {
+  margin-top: 0.45rem;
+  border: 1px solid #d8e5e0;
+  border-radius: 8px;
+  background: #f6fbf9;
+  padding: 0.35rem 0.45rem;
+}
+
+.equation-help summary {
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #1a3028;
+}
+
+.equation-help p {
+  margin-top: 0.28rem;
+  font-size: 0.69rem;
+  color: #355248;
+  line-height: 1.35;
+}
+
+.equation-help strong {
+  color: #1f252a;
+}
+
 /* ── Main column ──────────────────────────────────────────── */
 .main-col {
   display: flex;
@@ -410,6 +436,12 @@ body {
   gap: 0.35rem;
 }
 
+.tradeoff-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+}
+
 /* ── Shared chart box ─────────────────────────────────────── */
 .chart-box {
   display: flex;
@@ -527,6 +559,10 @@ body {
   }
 
   .charts-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tradeoff-grid {
     grid-template-columns: 1fr;
   }
 }

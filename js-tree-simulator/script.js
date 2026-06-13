@@ -40,6 +40,7 @@ const UI = {
   maxTipsValue:      document.getElementById("maxTipsValue"),
   classCount:        document.getElementById("classCount"),
   classCountValue:   document.getElementById("classCountValue"),
+  balancedWbeMode:   document.getElementById("balancedWbeMode"),
   seed:              document.getElementById("seed"),
   seedValue:         document.getElementById("seedValue"),
   sizeClassPreview:  document.getElementById("sizeClassPreview"),
@@ -54,9 +55,11 @@ const UI = {
   alloHeight:        document.getElementById("alloHeight"),
   alloMaxPath:       document.getElementById("alloMaxPath"),
   alloMeanPath:      document.getElementById("alloMeanPath"),
+  alloSumPath:       document.getElementById("alloSumPath"),
   alloTotalLen:      document.getElementById("alloTotalLen"),
   alloPF:            document.getElementById("alloPF"),
   alloSizeMeanPath:  document.getElementById("alloSizeMeanPath"),
+  alloSizeSumPath:   document.getElementById("alloSizeSumPath"),
   alloSizeVarPath:   document.getElementById("alloSizeVarPath"),
   alloSizeMaxPath:   document.getElementById("alloSizeMaxPath"),
   alloStemVol2:      document.getElementById("alloStemVol2"),
@@ -65,14 +68,23 @@ const UI = {
   alloMeanPath2:     document.getElementById("alloMeanPath2"),
   alloTotalLen2:     document.getElementById("alloTotalLen2"),
   alloPF2:           document.getElementById("alloPF2"),
+  tradeoffSurface:    document.getElementById("tradeoffSurface"),
+  tradeoffFrontier:   document.getElementById("tradeoffFrontier"),
+  tradeoffPathMetric: document.getElementById("tradeoffPathMetric"),
   eqDiameter:        document.getElementById("eqDiameter"),
-  eqLeaf:            document.getElementById("eqLeaf")
+  eqLeaf:            document.getElementById("eqLeaf"),
+  eqTradeoff:        document.getElementById("eqTradeoff")
 };
 
 const state = {
   classes:       [],
   selectedIndex: 0,
-  alloPoints:    []
+  alloPoints:    [],
+  activeTab:     "paths",
+  lastParams:    null,
+  tradeoffRevision: 0,
+  renderedTradeoffRevision: -1,
+  tradeoffRendering: false
 };
 
 // ── RNG utilities ─────────────────────────────────────────────
@@ -100,30 +112,74 @@ function randBetaApprox(rand, alpha, beta) {
 
 // ── Inputs & slider sync ──────────────────────────────────────
 function buildSizeClasses(minTips, maxTips, count) {
-  const mn = Math.max(2, Math.round(minTips));
+  const mn = Math.max(1, Math.round(minTips));
   const mx = Math.max(mn, Math.round(maxTips));
   const n  = Math.max(2, Math.round(count));
   const cls = [];
   for (let i = 0; i < n; i++) {
     const t = i / (n - 1);
-    cls.push(Math.max(2, Math.round(mn * Math.pow(mx / mn, t))));
+    cls.push(Math.max(1, Math.round(mn * Math.pow(mx / mn, t))));
   }
   return [...new Set(cls)].sort((a, b) => a - b);
+}
+
+function buildBalancedSizeClasses(minTips, maxTips, count) {
+  const mn = Math.max(1, Math.round(minTips));
+  const mx = Math.max(mn, Math.round(maxTips));
+  const n = Math.max(2, Math.round(count));
+
+  const expMin = Math.ceil(Math.log2(mn));
+  const expMax = Math.floor(Math.log2(mx));
+  const powers = [];
+  for (let e = expMin; e <= expMax; e++) powers.push(2 ** e);
+
+  const candidates = [...new Set([mn, ...powers, mx])].sort((a, b) => a - b);
+  if (candidates.length <= n) return candidates;
+
+  const picks = [mn];
+  const inner = candidates.filter(v => v !== mn && v !== mx);
+  const innerSlots = Math.max(0, n - 2);
+  for (let i = 0; i < innerSlots; i++) {
+    const t = innerSlots === 1 ? 0.5 : i / (innerSlots - 1);
+    const idx = Math.round(t * Math.max(inner.length - 1, 0));
+    if (inner[idx] != null) picks.push(inner[idx]);
+  }
+  picks.push(mx);
+
+  return [...new Set(picks)].sort((a, b) => a - b);
 }
 
 function getInputs() {
   const minTips    = Number(UI.minTips.value);
   const maxTips    = Number(UI.maxTips.value);
   const classCount = Number(UI.classCount.value);
+  const pathScalingMetric = (UI.tradeoffPathMetric && UI.tradeoffPathMetric.value === "maxPath")
+    ? "maxPath"
+    : "meanPath";
+
+  let maxDepth = Math.round(Number(UI.maxDepth.value));
+  const minDepthForTarget = Math.max(3, Math.ceil(Math.log2(Math.max(2, maxTips))) + 1);
+  if (maxDepth < minDepthForTarget) {
+    maxDepth = minDepthForTarget;
+    if (UI.maxDepth) UI.maxDepth.value = String(maxDepth);
+    if (UI.maxDepthValue) UI.maxDepthValue.value = String(maxDepth);
+  }
+
+  const balancedMode = Boolean(UI.balancedWbeMode && UI.balancedWbeMode.checked);
+  const sizeClasses = balancedMode
+    ? buildBalancedSizeClasses(minTips, maxTips, classCount)
+    : buildSizeClasses(minTips, maxTips, classCount);
   return {
     pathFraction: Number(UI.pathFraction.value),
     asymStrength:  Number(UI.asymStrength.value),
     lengthDecay:   Number(UI.lengthDecay.value),
     radiusDecay:   Number(UI.radiusDecay.value),
     branchProb:    Number(UI.branchProb.value),
-    maxDepth:      Math.round(Number(UI.maxDepth.value)),
+    maxDepth,
     minTips, maxTips, classCount,
-    sizeClasses:   buildSizeClasses(minTips, maxTips, classCount),
+    sizeClasses,
+    balancedMode,
+    pathScalingMetric,
     seed:          Math.round(Number(UI.seed.value))
   };
 }
@@ -142,7 +198,10 @@ function syncSliderOutputs() {
   UI.minTipsValue.value    = String(mn);
   UI.maxTipsValue.value    = String(mx);
   UI.classCountValue.value = String(Math.round(Number(UI.classCount.value)));
-  const preview = buildSizeClasses(mn, mx, Number(UI.classCount.value));
+  const useBalanced = Boolean(UI.balancedWbeMode && UI.balancedWbeMode.checked);
+  const preview = useBalanced
+    ? buildBalancedSizeClasses(mn, mx, Number(UI.classCount.value))
+    : buildSizeClasses(mn, mx, Number(UI.classCount.value));
   UI.sizeClassPreview.textContent = `Classes: ${preview.join(", ")}`;
 }
 
@@ -178,6 +237,7 @@ function simulateTree(params, targetTips, seedOffset) {
   const baseRadius = Number.isFinite(params.baseRadius) ? params.baseRadius : 0.1;
 
   const nodes = [{ id: 1, x: 0, y: 0, depth: 0 }];
+  const nodeById = new Map([[1, nodes[0]]]);
   const edges = [];
   let nextId  = 2;
 
@@ -192,6 +252,7 @@ function simulateTree(params, targetTips, seedOffset) {
     depth: 1
   };
   nodes.push(tn);
+  nodeById.set(tn.id, tn);
   edges.push({ from: 1, to: tn.id, depth: 1, length: trunkLen, radius: trunkRad, angle: trunkAngle, isMain: true });
 
   const frontier = [{
@@ -201,9 +262,12 @@ function simulateTree(params, targetTips, seedOffset) {
     mainSteps: 1, steps: 1
   }];
 
-  while (frontier.length > 0) {
-    if (countTips(edges) >= targetTips) break;
-    const cur = frontier.shift();
+  let frontierIndex = 0;
+  let tipCount = 1;
+
+  while (frontierIndex < frontier.length) {
+    if (tipCount >= targetTips) break;
+    const cur = frontier[frontierIndex++];
     if (cur.depth > params.maxDepth) continue;
     if (rand() > params.branchProb && cur.depth > 2) continue;
 
@@ -220,17 +284,20 @@ function simulateTree(params, targetTips, seedOffset) {
     const sideSign  = rand() < 0.5 ? -1 : 1;
     const sideAngle = cur.angle + sideSign * (34 + randNorm(rand, 0, 9));
 
-    const parent = nodes.find(n => n.id === cur.nodeId);
+    const parent = nodeById.get(cur.nodeId);
     if (!parent) continue;
 
     const mn2 = { id: nextId++, x: parent.x + mainLen * Math.cos(mainAngle * Math.PI / 180), y: parent.y + mainLen * Math.sin(mainAngle * Math.PI / 180), depth: cur.depth };
     const sn  = { id: nextId++, x: parent.x + sideLen * Math.cos(sideAngle * Math.PI / 180), y: parent.y + sideLen * Math.sin(sideAngle * Math.PI / 180), depth: cur.depth };
     nodes.push(mn2, sn);
+    nodeById.set(mn2.id, mn2);
+    nodeById.set(sn.id, sn);
     edges.push({ from: parent.id, to: mn2.id, depth: cur.depth, length: mainLen, radius: mainRad, angle: mainAngle, isMain: true });
     edges.push({ from: parent.id, to: sn.id,  depth: cur.depth, length: sideLen, radius: sideRad, angle: sideAngle, isMain: false });
 
     frontier.push({ nodeId: mn2.id, depth: cur.depth + 1, angle: mainAngle, length: mainLen * params.lengthDecay, radius: mainRad * params.radiusDecay, mainSteps: cur.mainSteps + 1, steps: cur.steps + 1 });
     frontier.push({ nodeId: sn.id,  depth: cur.depth + 1, angle: sideAngle, length: sideLen * params.lengthDecay, radius: sideRad * params.radiusDecay, mainSteps: cur.mainSteps, steps: cur.steps + 1 });
+    tipCount += 1;
   }
 
   const pathStats = computePathStats(nodes, edges);
@@ -304,6 +371,7 @@ function computeTreeMetrics(tree, sizeIdx) {
   const nTips      = leafCount;
   const maxPathLen = pathLens.length ? Math.max(...pathLens) : 1e-6;
   const meanPathLen = pathLens.length ? pathLens.reduce((s, v) => s + v, 0) / pathLens.length : 1e-6;
+  const totalPathLen = pathLens.length ? pathLens.reduce((s, v) => s + v, 0) : 1e-6;
   const varPathLen = pathLens.length
     ? pathLens.reduce((s, v) => s + (v - meanPathLen) ** 2, 0) / pathLens.length
     : 1e-6;
@@ -323,6 +391,7 @@ function computeTreeMetrics(tree, sizeIdx) {
     height,
     maxPathLen,
     meanPathLen,
+    totalPathLen,
     varPathLen,
     meanPathFrac,
     targetTips: tree.targetTips,
@@ -369,6 +438,7 @@ function rescaleTreeMetrics(metrics, scales) {
     height: metrics.height * lengthScale,
     maxPathLen: metrics.maxPathLen * lengthScale,
     meanPathLen: metrics.meanPathLen * lengthScale,
+    totalPathLen: metrics.totalPathLen * lengthScale,
     varPathLen: metrics.varPathLen * lengthScale * lengthScale
   };
 }
@@ -422,21 +492,22 @@ function computeExpectedExponents(eta, gamma) {
 }
 
 function buildAllometryTargets(minTips, maxTips) {
-  const minExp = Math.max(2, Math.ceil(Math.log2(Math.max(4, minTips))));
-  const maxExp = Math.max(minExp + 1, Math.floor(Math.log2(Math.max(8, maxTips))));
+  const minExp = Math.max(0, Math.ceil(Math.log2(Math.max(1, minTips))));
+  const maxExp = Math.max(minExp + 1, Math.floor(Math.log2(Math.max(1, maxTips))));
   const targets = [];
   for (let exp = minExp; exp <= maxExp; exp++) {
     targets.push(2 ** exp);
   }
-  return targets;
+  if (!targets.includes(maxTips)) targets.push(maxTips);
+  return [...new Set(targets)].sort((a, b) => a - b);
 }
 
 // Build allometry dataset using branching-consistent tip classes.
 // Power-of-two targets reduce last-generation censoring that can strongly bias
 // WBE checks when the tree is stopped at arbitrary tip counts.
 function buildAllometryPoints(params) {
-  const minT = Math.max(4, params.minTips);
-  const maxT = Math.min(512, params.maxTips * 4);
+  const minT = Math.max(1, params.minTips);
+  const maxT = Math.min(1000, params.maxTips * 4);
   const targets = buildAllometryTargets(minT, maxT);
   const reps = 6;
   const pts  = [];
@@ -532,6 +603,26 @@ function makeHist(values, bins, lo, hi) {
   return arr;
 }
 
+function summarizePathLengths(tree) {
+  const vals = tree.pathStats.map(d => d.pathLength).filter(v => Number.isFinite(v) && v > 0);
+  if (!vals.length) {
+    return {
+      values: [],
+      mean: 0,
+      cv: 0,
+      logVar: 0
+    };
+  }
+  const n = vals.length;
+  const mean = vals.reduce((s, v) => s + v, 0) / n;
+  const varAbs = vals.reduce((s, v) => s + (v - mean) ** 2, 0) / n;
+  const cv = mean > 0 ? Math.sqrt(varAbs) / mean : 0;
+  const logs = vals.map(v => Math.log10(v));
+  const meanLog = logs.reduce((s, v) => s + v, 0) / logs.length;
+  const logVar = logs.reduce((s, v) => s + (v - meanLog) ** 2, 0) / logs.length;
+  return { values: vals, mean, cv, logVar };
+}
+
 function drawBaseAxes(ctx, cw, ch, pad, xLabel, yLabel) {
   ctx.strokeStyle = "#33404a";
   ctx.lineWidth = 1;
@@ -556,9 +647,15 @@ function drawWithinHistogram(tree) {
   const ctx    = canvas.getContext("2d");
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  const vals   = tree.pathStats.map(d => d.pathFraction);
+  const summary = summarizePathLengths(tree);
+  const vals = summary.values.map(v => Math.log10(v));
+  if (!vals.length) return;
+
   const bins   = 16;
-  const counts = makeHist(vals, bins, 0, 1);
+  const lo = Math.min(...vals);
+  const hi = Math.max(...vals);
+  const span = Math.max(hi - lo, 1e-6);
+  const counts = makeHist(vals, bins, lo - 0.05 * span, hi + 0.05 * span);
   const maxC   = Math.max(...counts, 1);
   const pad    = { l: 34, r: 8, t: 10, b: 26 };
   const w      = canvas.width  - pad.l - pad.r;
@@ -570,7 +667,12 @@ function drawWithinHistogram(tree) {
     const bh = (counts[i] / maxC) * h;
     ctx.fillRect(pad.l + i * bw + 1, pad.t + h - bh, Math.max(1, bw - 2), bh);
   }
-  drawBaseAxes(ctx, canvas.width, canvas.height, pad, "Path fraction (Ll / Ll*)", "Freq");
+  drawBaseAxes(ctx, canvas.width, canvas.height, pad, "log10(path length)", "Freq");
+
+  ctx.fillStyle = "#33404a";
+  ctx.font = "9px sans-serif";
+  ctx.textBaseline = "top";
+  ctx.fillText(`CV=${summary.cv.toFixed(2)}  var(logL)=${summary.logVar.toFixed(3)}`, pad.l + 2, 2);
 }
 
 function drawAcrossHistogram(classes) {
@@ -583,7 +685,17 @@ function drawAcrossHistogram(classes) {
   const w      = canvas.width  - pad.l - pad.r;
   const h      = canvas.height - pad.t - pad.b;
   const colors = ["#1f252a", "#0d6e6e", "#b85c38", "#6b7c85", "#4a8f78", "#8a5c38", "#385c8a", "#8a385c"];
-  const hists  = classes.map(c => makeHist(c.tree.pathStats.map(d => d.pathFraction), bins, 0, 1));
+  const relLogs = classes.map(c => {
+    const summary = summarizePathLengths(c.tree);
+    if (!summary.values.length || summary.mean <= 0) return [];
+    return summary.values.map(v => Math.log10(v / summary.mean));
+  });
+  const allVals = relLogs.flat();
+  if (!allVals.length) return;
+  const lo = Math.min(...allVals);
+  const hi = Math.max(...allVals);
+  const span = Math.max(hi - lo, 1e-6);
+  const hists  = relLogs.map(vals => makeHist(vals, bins, lo - 0.05 * span, hi + 0.05 * span));
   const maxC   = Math.max(1, ...hists.flat());
 
   for (let ci = 0; ci < classes.length; ci++) {
@@ -598,7 +710,7 @@ function drawAcrossHistogram(classes) {
     ctx.stroke();
   }
 
-  drawBaseAxes(ctx, canvas.width, canvas.height, pad, "Path fraction (Ll / Ll*)", "Freq");
+  drawBaseAxes(ctx, canvas.width, canvas.height, pad, "log10(path length / mean path)", "Freq");
 
   ctx.font = "9px sans-serif";
   ctx.textBaseline = "middle";
@@ -791,7 +903,7 @@ function drawScatter(canvas, points, xKey, yKey, xLabel, yLabel, title, linearY,
   return { slope, intercept, n: valid.length };
 }
 
-function fitLogSlope(points, xKey, yKey) {
+function fitLogSlopeValue(points, xKey, yKey) {
   const valid = points.filter(p => p[xKey] > 0 && p[yKey] > 0);
   if (valid.length < 3) return null;
   const xs = valid.map(p => Math.log10(p[xKey]));
@@ -822,7 +934,7 @@ function estimateEmergentAsymptote(points, xKey, yKey) {
     const s0 = sizes[i];
     const tail = valid.filter(p => getSize(p) >= s0);
     if (tail.length < 10) continue;
-    const b = fitLogSlope(tail, xKey, yKey);
+    const b = fitLogSlopeValue(tail, xKey, yKey);
     if (Number.isFinite(b)) eff.push({ invS: 1 / s0, b });
   }
   if (eff.length < 4) return null;
@@ -883,6 +995,295 @@ function renderEquationPanel(container, rows) {
   });
 }
 
+function clamp(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function localSweep(center, delta, lo, hi) {
+  const vals = [center - delta, center, center + delta].map(v => Number(clamp(v, lo, hi).toFixed(3)));
+  return [...new Set(vals)].sort((a, b) => a - b);
+}
+
+function fitLogSlope(rows, xKey, yKey) {
+  const pts = rows
+    .map(r => ({ x: Number(r[xKey]), y: Number(r[yKey]) }))
+    .filter(p => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x > 0 && p.y > 0)
+    .map(p => ({ lx: Math.log10(p.x), ly: Math.log10(p.y) }));
+
+  if (pts.length < 2) return null;
+  const mx = pts.reduce((s, p) => s + p.lx, 0) / pts.length;
+  const my = pts.reduce((s, p) => s + p.ly, 0) / pts.length;
+  const sxx = pts.reduce((s, p) => s + (p.lx - mx) * (p.lx - mx), 0);
+  if (sxx <= 1e-12) return null;
+  const sxy = pts.reduce((s, p) => s + (p.lx - mx) * (p.ly - my), 0);
+  const slope = sxy / sxx;
+  const intercept = my - slope * mx;
+  const sse = pts.reduce((s, p) => {
+    const yh = intercept + slope * p.lx;
+    return s + (p.ly - yh) * (p.ly - yh);
+  }, 0);
+  const sst = pts.reduce((s, p) => s + (p.ly - my) * (p.ly - my), 0);
+  const r2 = sst > 0 ? 1 - sse / sst : 1;
+
+  return { slope, intercept, r2, n: pts.length };
+}
+
+function computeThetaFromDecay(lengthDecay, radiusDecay, nBranch = 2) {
+  const logN = Math.log(nBranch);
+  const a = -Math.log(radiusDecay) / logN;
+  const b = -Math.log(lengthDecay) / logN;
+  const denom = 2 * a + b;
+  if (!Number.isFinite(denom) || denom <= 0) return null;
+  return 1 / denom;
+}
+
+function buildTradeoffSurfacePoints(params) {
+  const pathVals = localSweep(params.pathFraction, 0.2, 0, 1);
+  const asymVals = localSweep(params.asymStrength, 0.3, 0, 1);
+  const lenVals = localSweep(params.lengthDecay, 0.05, 0.6, 0.95);
+  const radVals = localSweep(params.radiusDecay, 0.05, 0.55, 0.9);
+
+  const sizeClasses = buildSizeClasses(params.minTips, params.maxTips, Math.max(4, params.classCount));
+  const reps = 2;
+  const rows = [];
+  let comboId = 0;
+  const pathYKey = params.pathScalingMetric === "maxPath" ? "maxPath" : "meanPath";
+
+  for (const pf of pathVals) {
+    for (const asym of asymVals) {
+      for (const ld of lenVals) {
+        for (const rd of radVals) {
+          comboId += 1;
+          const comboSamples = [];
+          for (const targetTips of sizeClasses) {
+            for (let rep = 1; rep <= reps; rep++) {
+              const localParams = {
+                ...params,
+                pathFraction: pf,
+                asymStrength: asym,
+                lengthDecay: ld,
+                radiusDecay: rd,
+                seed: params.seed + comboId * 97 + rep * 13 + targetTips * 5
+              };
+              const tree = simulateTree(localParams, targetTips, rep);
+              const met = computeTreeMetrics(tree, 0);
+              comboSamples.push({
+                mass: met.totalBiomass,
+                meanPath: met.meanPathLen,
+                maxPath: met.maxPathLen,
+                leafCount: met.leafCount
+              });
+            }
+          }
+
+          const pathFit = fitLogSlope(comboSamples, "mass", pathYKey);
+          const leafFit = fitLogSlope(comboSamples, "mass", "leafCount");
+          const theta = computeThetaFromDecay(ld, rd);
+
+          if (!pathFit || !leafFit || !Number.isFinite(theta)) continue;
+
+          const meanPath = comboSamples.reduce((s, x) => s + x.meanPath, 0) / Math.max(comboSamples.length, 1);
+          const isCenter =
+            pf === Number(params.pathFraction.toFixed(3)) &&
+            asym === Number(params.asymStrength.toFixed(3)) &&
+            ld === Number(params.lengthDecay.toFixed(3)) &&
+            rd === Number(params.radiusDecay.toFixed(3));
+
+          rows.push({
+            comboId,
+            pathFraction: pf,
+            asymStrength: asym,
+            lengthDecay: ld,
+            radiusDecay: rd,
+            theta,
+            lambdaPath: pathFit.slope,
+            pathMetric: pathYKey,
+            alphaLeaf: leafFit.slope,
+            pathR2: pathFit.r2,
+            leafR2: leafFit.r2,
+            meanPath,
+            sampleCount: comboSamples.length,
+            isCenter
+          });
+        }
+      }
+    }
+  }
+
+  return rows;
+}
+
+function aggregateTradeoffSurface(rows) {
+  return rows;
+}
+
+function computeTradeoffFrontier(rows) {
+  return rows;
+}
+
+function colorByScale(value, lo, hi) {
+  const t = hi > lo ? (value - lo) / (hi - lo) : 0.5;
+  const tt = clamp(t, 0, 1);
+  const r = Math.round(40 + tt * 190);
+  const g = Math.round(80 + (1 - tt) * 120);
+  const b = Math.round(180 - tt * 110);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function drawTradeoffPanel(canvas, rows, cfg) {
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!rows.length) return;
+
+  const pad = { l: 54, r: 14, t: 22, b: 34 };
+  const w = canvas.width - pad.l - pad.r;
+  const h = canvas.height - pad.t - pad.b;
+
+  const xs = rows.map(r => r[cfg.xKey]);
+  const ys = rows.map(r => r[cfg.yKey]);
+  const cs = rows.map(r => r[cfg.colorKey]);
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  const yMin = Math.min(...ys), yMax = Math.max(...ys);
+  const cMin = Math.min(...cs), cMax = Math.max(...cs);
+
+  const sx = x => pad.l + (x - xMin) / Math.max(xMax - xMin, 1e-9) * w;
+  const sy = y => pad.t + h - (y - yMin) / Math.max(yMax - yMin, 1e-9) * h;
+
+  ctx.strokeStyle = "#33404a";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(pad.l, pad.t);
+  ctx.lineTo(pad.l, pad.t + h);
+  ctx.lineTo(pad.l + w, pad.t + h);
+  ctx.stroke();
+
+  rows.forEach(r => {
+    const x = sx(r[cfg.xKey]);
+    const y = sy(r[cfg.yKey]);
+    const isCenter = Boolean(r.isCenter);
+    ctx.beginPath();
+    ctx.arc(x, y, isCenter ? 4.4 : 3.1, 0, Math.PI * 2);
+    ctx.fillStyle = colorByScale(r[cfg.colorKey], cMin, cMax);
+    ctx.fill();
+    if (isCenter) {
+      ctx.strokeStyle = "#981f1f";
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    }
+  });
+
+  // Color legend for point encoding in this panel.
+  const lgW = 90;
+  const lgH = 8;
+  const lgX = canvas.width - pad.r - lgW;
+  const lgY = pad.t + 4;
+  const grad = ctx.createLinearGradient(lgX, lgY, lgX + lgW, lgY);
+  grad.addColorStop(0, colorByScale(cMin, cMin, cMax));
+  grad.addColorStop(1, colorByScale(cMax, cMin, cMax));
+  ctx.fillStyle = grad;
+  ctx.fillRect(lgX, lgY, lgW, lgH);
+  ctx.strokeStyle = "#5d6f67";
+  ctx.lineWidth = 0.8;
+  ctx.strokeRect(lgX, lgY, lgW, lgH);
+
+  ctx.fillStyle = "#33404a";
+  ctx.font = "9px sans-serif";
+  ctx.textBaseline = "top";
+  ctx.fillText(`${cfg.colorLabel}: ${cMin.toFixed(2)} → ${cMax.toFixed(2)}`, lgX, lgY + lgH + 2);
+
+  ctx.fillStyle = "#0f2018";
+  ctx.font = "bold 10px sans-serif";
+  ctx.fillText(cfg.title, pad.l + 2, 2);
+
+  ctx.fillStyle = "#33404a";
+  ctx.font = "bold 10px sans-serif";
+  const xW = ctx.measureText(cfg.xLabel).width;
+  ctx.fillText(cfg.xLabel, pad.l + w / 2 - xW / 2, canvas.height - 4);
+  ctx.save();
+  ctx.translate(14, pad.t + h / 2 + 14);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(cfg.yLabel, 0, 0);
+  ctx.restore();
+}
+
+function renderTradeoffSummary(container, rows) {
+  if (!container) return;
+  if (!rows.length) {
+    container.innerHTML = "";
+    return;
+  }
+
+  const thetaVals = rows.map(r => r.theta);
+  const pathVals = rows.map(r => r.lambdaPath);
+  const leafVals = rows.map(r => r.alphaLeaf);
+  const pathTrend = fitLogSlope(rows.map(r => ({ theta: Math.pow(10, r.theta), lambdaPath: Math.pow(10, r.lambdaPath) })), "theta", "lambdaPath");
+  const leafTrend = fitLogSlope(rows.map(r => ({ theta: Math.pow(10, r.theta), alphaLeaf: Math.pow(10, r.alphaLeaf) })), "theta", "alphaLeaf");
+  const center = rows.find(r => r.isCenter) || null;
+  const pathMetricLabel = center && center.pathMetric === "maxPath" ? "max path length" : "mean path length";
+
+  container.innerHTML = [
+    `<div class="equation-item"><div class="eq-title">Theta range</div><div>${Math.min(...thetaVals).toFixed(2)} to ${Math.max(...thetaVals).toFixed(2)} across ${rows.length} architecture settings.</div></div>`,
+    `<div class="equation-item"><div class="eq-title">Path-length scaling range</div><div>\u03bb_path from ${pathMetricLabel} in L ~ M^\u03bb spans ${Math.min(...pathVals).toFixed(2)} to ${Math.max(...pathVals).toFixed(2)}.</div></div>`,
+    `<div class="equation-item"><div class="eq-title">Leaf scaling range</div><div>\u03b1_leaf in N_leaf ~ M^\u03b1 spans ${Math.min(...leafVals).toFixed(2)} to ${Math.max(...leafVals).toFixed(2)}.</div></div>`,
+    `<div class="equation-item"><div class="eq-title">Trend with steeper theta</div><div>Path exponent trend: ${pathTrend ? pathTrend.slope.toFixed(2) : "NA"}; leaf exponent trend: ${leafTrend ? leafTrend.slope.toFixed(2) : "NA"}.</div></div>`,
+    center ? `<div class="equation-item"><div class="eq-title">Current slider setting</div><div>Pf=${center.pathFraction.toFixed(2)}, asym=${center.asymStrength.toFixed(2)}, eta=${center.lengthDecay.toFixed(2)}, gamma=${center.radiusDecay.toFixed(2)}, theta=${center.theta.toFixed(2)}, \u03bb_path=${center.lambdaPath.toFixed(2)}, \u03b1_leaf=${center.alphaLeaf.toFixed(2)}</div></div>` : "",
+    `<div class="equation-list eq-theory">Leaf scaling uses leaf count as an area proxy (constant mean leaf area assumption). Red-outlined point marks the current slider architecture. Color encodes \u03b1_leaf in the left panel and \u03bb_path in the right panel.</div>`
+  ].join("");
+}
+
+function renderTradeoffSurfaces(params) {
+  const points = buildTradeoffSurfacePoints(params);
+  const agg = aggregateTradeoffSurface(points);
+  const withFrontier = computeTradeoffFrontier(agg);
+
+  drawTradeoffPanel(UI.tradeoffSurface, withFrontier, {
+    xKey: "theta",
+    yKey: "lambdaPath",
+    colorKey: "alphaLeaf",
+    title: "Theta vs path-length scaling",
+    xLabel: "Theta (shallow to steep)",
+    yLabel: `\u03bb_path (${params.pathScalingMetric === "maxPath" ? "max path" : "mean path"}) in L ~ M^\u03bb`,
+    colorLabel: "color: \u03b1_leaf"
+  });
+
+  drawTradeoffPanel(UI.tradeoffFrontier, withFrontier, {
+    xKey: "theta",
+    yKey: "alphaLeaf",
+    colorKey: "lambdaPath",
+    title: "Theta vs leaf deployment scaling",
+    xLabel: "Theta (shallow to steep)",
+    yLabel: "\u03b1_leaf in N_leaf ~ M^\u03b1",
+    colorLabel: `color: \u03bb_path (${params.pathScalingMetric === "maxPath" ? "max" : "mean"})`
+  });
+
+  renderTradeoffSummary(UI.eqTradeoff, withFrontier);
+}
+
+function renderTradeoffIfNeeded(force = false) {
+  const shouldRender = force || state.activeTab === "tradeoff";
+  if (!shouldRender || !state.lastParams) return;
+  if (state.tradeoffRendering) return;
+  if (state.renderedTradeoffRevision >= state.tradeoffRevision) return;
+
+  const revision = state.tradeoffRevision;
+  const params = { ...state.lastParams };
+  state.tradeoffRendering = true;
+
+  if (UI.eqTradeoff) {
+    UI.eqTradeoff.innerHTML = '<div class="equation-item"><div class="eq-title">Computing theta diagnostics...</div><div>Running local architecture sweep for current controls.</div></div>';
+  }
+
+  setTimeout(() => {
+    renderTradeoffSurfaces(params);
+    state.renderedTradeoffRevision = revision;
+    state.tradeoffRendering = false;
+    if (state.activeTab === "tradeoff" && state.renderedTradeoffRevision < state.tradeoffRevision) {
+      renderTradeoffIfNeeded(true);
+    }
+  }, 0);
+}
+
 // ── Baseline-aligned strip tree renderer ─────────────────────
 // All trees share the same root y-position (strip bottom);
 // taller trees grow further up — giving an instant size comparison.
@@ -928,12 +1329,14 @@ function renderSizeCards() {
 
   state.classes.forEach((item, idx) => {
     const m = computeTreeMetrics(item.tree, idx);
+    const tipDelta = m.nTips - item.targetTips;
+    const tipSign = tipDelta > 0 ? "+" : "";
 
     const div = document.createElement("div");
     div.className = "strip-item" + (idx === state.selectedIndex ? " selected" : "");
     div.setAttribute("role", "button");
     div.setAttribute("tabindex", "0");
-    div.title = `${item.targetTips} tips  ·  h=${m.height.toFixed(1)}  pf=${m.meanPathFrac.toFixed(2)}`;
+    div.title = `requested=${item.targetTips}  realized=${m.nTips}  (Δ=${tipSign}${tipDelta})  ·  h=${m.height.toFixed(1)}  pf=${m.meanPathFrac.toFixed(2)}`;
 
     const svgEl = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svgEl.setAttribute("viewBox", "0 0 70 90");
@@ -943,7 +1346,7 @@ function renderSizeCards() {
 
     const label = document.createElement("div");
     label.className = "strip-label";
-    label.textContent = item.targetTips;
+    label.textContent = `${item.targetTips}→${m.nTips}`;
 
     div.append(svgEl, label);
 
@@ -955,7 +1358,12 @@ function renderSizeCards() {
       updateTreeMeta(m);
     }
     div.addEventListener("click", select);
-    div.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") select(); });
+    div.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        select();
+      }
+    });
 
     UI.treeStrip.appendChild(div);
     requestAnimationFrame(() => drawStripTree(svgEl, item.tree, maxTreeH));
@@ -977,12 +1385,17 @@ function updateTreeMeta(m) {
 
 // ── Tab switching ─────────────────────────────────────────────
 function initTabs() {
+  const activeBtn = document.querySelector(".tab-btn.active");
+  state.activeTab = activeBtn ? activeBtn.dataset.tab : "paths";
+
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".tab-content").forEach(t => t.classList.add("hidden"));
       btn.classList.add("active");
       document.getElementById("tab-" + btn.dataset.tab).classList.remove("hidden");
+      state.activeTab = btn.dataset.tab;
+      if (state.activeTab === "tradeoff") renderTradeoffIfNeeded(true);
     });
   });
 }
@@ -994,9 +1407,11 @@ function drawDiameterAllometries(pts, params) {
     { canvas: UI.alloHeight,   yKey: "totalBiomass",  yLabel: "log10(total biomass)",    title: "Trunk diameter vs total biomass", thSlope: th ? th.bBiomassVsD : null },
     { canvas: UI.alloMaxPath,  yKey: "leafCount",     yLabel: "log10(leaf number)",      title: "Trunk diameter vs leaf number", thSlope: th ? th.bLeafVsD : null },
     { canvas: UI.alloMeanPath, yKey: "networkVolume", yLabel: "log10(network volume)",   title: "Trunk diameter vs network volume", thSlope: th ? th.bNetVsD : null },
+    { canvas: UI.alloSumPath,  yKey: "totalPathLen",  yLabel: "log10(total network path length)", title: "Trunk diameter vs total network path length", thSlope: null },
     { canvas: UI.alloTotalLen, yKey: "height",        yLabel: "log10(height)",           title: "Trunk diameter vs height", thSlope: th ? th.bHeightVsD : null },
     { canvas: UI.alloPF,       yKey: "maxPathLen",    yLabel: "log10(max path length)",  title: "Trunk diameter vs max path length", thSlope: th ? th.bMaxPathVsD : null },
     { canvas: UI.alloSizeMeanPath, xKey: "nTips", yKey: "meanPathLen", yLabel: "log10(mean path length)", title: "Size (tips) vs mean path length", xLabel: "log10(size: tip count)", thSlope: th ? th.aL : null },
+    { canvas: UI.alloSizeSumPath,  xKey: "nTips", yKey: "totalPathLen", yLabel: "log10(total network path length)", title: "Size (tips) vs total network path length", xLabel: "log10(size: tip count)", thSlope: null },
     { canvas: UI.alloSizeVarPath,  xKey: "nTips", yKey: "varPathLen",  yLabel: "log10(path length variance)", title: "Size (tips) vs path length variance", xLabel: "log10(size: tip count)", thSlope: null },
     { canvas: UI.alloSizeMaxPath,  xKey: "nTips", yKey: "maxPathLen",  yLabel: "log10(max path length)", title: "Size (tips) vs max path length", xLabel: "log10(size: tip count)", thSlope: th ? th.aL : null }
   ];
@@ -1077,6 +1492,8 @@ function drawLeafAllometries(pts, params) {
 // ── Main simulation run ───────────────────────────────────────
 function runSimulation() {
   const params = getInputs();
+  state.lastParams = { ...params };
+  state.tradeoffRevision += 1;
 
   state.classes = params.sizeClasses.map((targetTips, idx) => ({
     targetTips,
@@ -1096,6 +1513,7 @@ function runSimulation() {
   state.alloPoints = buildAllometryPoints(params);
   drawDiameterAllometries(state.alloPoints, params);
   drawLeafAllometries(state.alloPoints, params);
+  renderTradeoffIfNeeded(false);
 }
 
 // ── Event listeners & init ────────────────────────────────────
@@ -1109,6 +1527,17 @@ UI.wbeSnapBtn.addEventListener("click", () => {
   snapToWbe();
   runSimulation();
 });
+
+if (UI.balancedWbeMode) {
+  UI.balancedWbeMode.addEventListener("change", syncSliderOutputs);
+}
+
+if (UI.tradeoffPathMetric) {
+  UI.tradeoffPathMetric.addEventListener("change", () => {
+    state.tradeoffRevision += 1;
+    renderTradeoffIfNeeded(true);
+  });
+}
 
 initTabs();
 syncSliderOutputs();

@@ -88,7 +88,7 @@
         <div class="slider-row">
           <label for="minTips">Min tips</label>
           <div class="slider-wrap">
-            <input id="minTips" type="range" min="4" max="128" step="1" value="16">
+            <input id="minTips" type="range" min="1" max="1000" step="1" value="16">
           </div>
           <output id="minTipsValue">16</output>
         </div>
@@ -96,7 +96,7 @@
         <div class="slider-row">
           <label for="maxTips">Max tips</label>
           <div class="slider-wrap">
-            <input id="maxTips" type="range" min="16" max="512" step="1" value="128">
+            <input id="maxTips" type="range" min="1" max="1000" step="1" value="128">
           </div>
           <output id="maxTipsValue">128</output>
         </div>
@@ -104,7 +104,7 @@
         <div class="slider-row">
           <label for="classCount">Size classes</label>
           <div class="slider-wrap">
-            <input id="classCount" type="range" min="2" max="8" step="1" value="4">
+            <input id="classCount" type="range" min="2" max="10" step="1" value="4">
           </div>
           <output id="classCountValue">4</output>
         </div>
@@ -167,6 +167,7 @@
           <button class="tab-btn active" data-tab="paths"    type="button">Path Distributions</button>
           <button class="tab-btn"        data-tab="diameter" type="button">Diameter-based</button>
           <button class="tab-btn"        data-tab="leaf" type="button">Leaf-based</button>
+          <button class="tab-btn"        data-tab="tradeoff" type="button">Theta Effects</button>
         </div>
 
         <!-- Tab: path distributions -->
@@ -190,15 +191,27 @@
             <div class="chart-box"><canvas id="alloHeight"      width="400" height="165"></canvas></div>
             <div class="chart-box"><canvas id="alloMaxPath"     width="400" height="165"></canvas></div>
             <div class="chart-box"><canvas id="alloMeanPath"    width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloSumPath"     width="400" height="165"></canvas></div>
             <div class="chart-box"><canvas id="alloTotalLen"    width="400" height="165"></canvas></div>
             <div class="chart-box"><canvas id="alloPF"          width="400" height="165"></canvas></div>
             <div class="chart-box"><canvas id="alloSizeMeanPath" width="400" height="165"></canvas></div>
+            <div class="chart-box"><canvas id="alloSizeSumPath"  width="400" height="165"></canvas></div>
             <div class="chart-box"><canvas id="alloSizeVarPath"  width="400" height="165"></canvas></div>
             <div class="chart-box"><canvas id="alloSizeMaxPath"  width="400" height="165"></canvas></div>
           </div>
           <section class="equation-panel" aria-label="Diameter allometry equations">
             <h3>Estimated Equations</h3>
             <div id="eqDiameter" class="equation-list"></div>
+            <details class="equation-help">
+              <summary>How to read these outputs</summary>
+              <p><strong>Fit:</strong> The red fitted slope from the plotted points for the currently simulated finite trees. It is an empirical regression result, not a theory value.</p>
+              <p><strong>Asymptote:</strong> The estimated large-tree limit exponent b∞ from finite-size convergence. The simulator fits <em>b_eff(S) = b∞ + c/S</em> across tree-size classes and reports b∞ in this line.</p>
+              <p><strong>Theory:</strong> A closed-form baseline exponent computed from the current geometry controls (length decay η and radius decay γ). It is WBE-style theory using your selected parameters, not a fixed "optimal WBE" constant unless your sliders are at WBE-optimal settings.</p>
+              <p><strong>Finite-size:</strong> The fitted convergence model for observed effective slopes across size classes. <em>S</em> is tree size (tips, using class target tips), and <em>c</em> is the leading finite-size correction strength.</p>
+              <p><strong>Is finite-size fit shown in scatter points?</strong> Not as a separate curve on the main scatter panel. Points are tree metrics; the finite-size relation is fit on slope-vs-size summaries and reported in the equation card.</p>
+              <p><strong>Δfit:</strong> (finite-tree fit slope) − (theory slope).</p>
+              <p><strong>Δasym:</strong> (asymptotic slope b∞) − (theory slope).</p>
+            </details>
           </section>
         </div>
 
@@ -215,6 +228,43 @@
           <section class="equation-panel" aria-label="Leaf allometry equations">
             <h3>Estimated Equations</h3>
             <div id="eqLeaf" class="equation-list"></div>
+            <details class="equation-help">
+              <summary>How to read these outputs</summary>
+              <p><strong>Fit:</strong> The red fitted slope from the plotted points for the currently simulated finite trees. It is an empirical regression result, not a theory value.</p>
+              <p><strong>Asymptote:</strong> The estimated large-tree limit exponent b∞ from finite-size convergence. The simulator fits <em>b_eff(S) = b∞ + c/S</em> across tree-size classes and reports b∞ in this line.</p>
+              <p><strong>Theory:</strong> A closed-form baseline exponent computed from the current geometry controls (length decay η and radius decay γ). It is WBE-style theory using your selected parameters, not a fixed "optimal WBE" constant unless your sliders are at WBE-optimal settings.</p>
+              <p><strong>Finite-size:</strong> The fitted convergence model for observed effective slopes across size classes. <em>S</em> is tree size (tips, using class target tips), and <em>c</em> is the leading finite-size correction strength.</p>
+              <p><strong>Is finite-size fit shown in scatter points?</strong> Not as a separate curve on the main scatter panel. Points are tree metrics; the finite-size relation is fit on slope-vs-size summaries and reported in the equation card.</p>
+              <p><strong>Δfit:</strong> (finite-tree fit slope) − (theory slope).</p>
+              <p><strong>Δasym:</strong> (asymptotic slope b∞) − (theory slope).</p>
+            </details>
+          </section>
+        </div>
+
+        <!-- Tab: theta-centered scaling diagnostics -->
+        <div class="tab-content hidden" id="tab-tradeoff">
+          <div class="check-row" style="margin-bottom:0.35rem;">
+            <label for="tradeoffPathMetric">
+              Path-length scaling metric:
+              <select id="tradeoffPathMetric" style="margin-left:0.35rem; font-size:0.72rem;">
+                <option value="meanPath" selected>Mean path length</option>
+                <option value="maxPath">Max path length</option>
+              </select>
+            </label>
+          </div>
+          <div class="tradeoff-grid">
+            <div class="chart-box">
+              <h3>Theta vs path-length scaling</h3>
+              <canvas id="tradeoffSurface" width="560" height="190"></canvas>
+            </div>
+            <div class="chart-box">
+              <h3>Theta vs leaf scaling</h3>
+              <canvas id="tradeoffFrontier" width="560" height="190"></canvas>
+            </div>
+          </div>
+          <section class="equation-panel" aria-label="Theta scaling diagnostics">
+            <h3>Theta Response Summary</h3>
+            <div id="eqTradeoff" class="equation-list"></div>
           </section>
         </div>
 
