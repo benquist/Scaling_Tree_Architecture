@@ -458,6 +458,25 @@ function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false
     ctx.fill();
   });
 
+  // Connect points from smallest to largest x so size progression is explicit.
+  const ordered = [...valid].sort((a, b) => a.x - b.x);
+  if (ordered.length >= 2) {
+    ctx.beginPath();
+    ctx.strokeStyle = "#64748b";
+    ctx.lineWidth = 1.5;
+    ctx.moveTo(sx(ordered[0].x), sy(ordered[0].y));
+    for (let i = 1; i < ordered.length; i += 1) {
+      ctx.lineTo(sx(ordered[i].x), sy(ordered[i].y));
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = "#334155";
+    ctx.font = "11px Avenir Next, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("smallest tree", sx(ordered[0].x) + 4, sy(ordered[0].y) - 6);
+    ctx.fillText("largest tree", sx(ordered[ordered.length - 1].x) + 4, sy(ordered[ordered.length - 1].y) - 6);
+  }
+
   const fit = fitLineXY(valid);
   if (Number.isFinite(fit.slope)) {
     const y1 = fit.slope * fit.xMin + fit.intercept;
@@ -471,7 +490,7 @@ function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false
 
     ctx.fillStyle = "#334155";
     ctx.font = "12px Avenir Next, sans-serif";
-    ctx.fillText(`Linear fit slope: ${fit.slope.toFixed(3)}`, padLeft + 8, padTop + 14);
+    ctx.fillText(`Log-log fit slope: ${fit.slope.toFixed(3)}`, padLeft + 8, padTop + 14);
   }
 
   ctx.fillStyle = "#334155";
