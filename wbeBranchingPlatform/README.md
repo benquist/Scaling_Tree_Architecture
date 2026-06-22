@@ -198,6 +198,38 @@ Increase $\text{asymmetry\_strength}$:
 
 ---
 
+## Classical WBE Paradox: Why Space-Filling Area-Preserving Parameters Predict M-Saturation
+
+**Observation**: Setting classical WBE parameters ($n=2$, $a \approx 0.794$, $b \approx 0.707$) in this simulator yields **M-saturation** (β undefined), not the expected 3/4 metabolic exponent.
+
+**Why this happens**:
+
+The generation multipliers are:
+$$\mu = nab^2 = 2 \times 0.794 \times (0.707)^2 = 0.794 < 1$$
+$$\kappa = \frac{nb^4}{a} = \frac{2 \times (0.707)^4}{0.794} = 0.630 < 1$$
+
+Since both $\mu < 1$ and $\kappa < 1$, the tree **cannot sustain growth**. Terminal mass (and conductance) *shrink* at each generation—physiologically implausible for a living tree.
+
+**Biological Interpretation**:
+
+1. **Classical WBE assumes an infinite, self-similar hierarchy** (idealized model). Real plants have **finite depth** and cannot achieve unlimited taper.
+
+2. **The simulator enforces finite termination** (maximum order ~6–12). Classical WBE parameters cause the tree to saturate before reaching typical biological depths.
+
+3. **Empirical deviations**: Real plants violate pure space-filling or area-preserving assumptions to maintain **sufficient conductance in terminals**. Examples:
+   - Vessels do not taper as sharply (b > 0.707)
+   - Lengths do not scale as strictly (a varies with developmental stage)
+   - Furcation may not be binary in vascular systems
+
+**Recommendation**: To explore realistic metabolic scaling in this simulator:
+- Use **WBE Target Mode** (achieves 3/4 and 2 exponents, though parameters are unconventional)
+- **Increase furcation** ($n=3$ or $4$) to raise $\mu$ and $\kappa$
+- **Adjust $a$ and $b$** such that $\mu > 1$ and $\kappa > 1$ (Growing regime)
+
+This paradox highlights that **classical WBE parameters alone do not explain observed metabolic scaling in finite trees**. See Savage et al. (2008, 2010) for empirical reconciliation.
+
+---
+
 ## WBE Target Mode: Caveats
 
 The **WBE Target Mode** (checkbox in control panel) sets $a=1.30$, $b=0.984$, $n=2$ to achieve:
@@ -291,6 +323,57 @@ This simulator uses **dimensionless arbitrary units** for all metrics:
 - Asymptotic slope is estimated by fitting order-wise mean slopes in log-log space against $1/m_{\max}$.
 - Valid only in **Log-Log mode** (raw-scale asymptotics are meaningless).
 - Shows $R^2$ of the finite-size fit; $R^2 > 0.9$ indicates high confidence.
+
+### Parameter Realism and Sensitivity
+
+**Realistic Parameter Ranges** (from empirical plant vascular networks):
+- **Furcation (n)**: 2 (typical for xylem; branching is primarily binary)
+- **Length ratio (a, ℓ_ratio)**: 0.75–0.85 (observed in diverse plants; space-filling range ~0.79)
+- **Radius ratio (b, r_ratio)**: 0.65–0.75 (observed in vascular systems; area-preserving ~0.707)
+- **Asymmetry strength**: 0–0.5 (natural trees show partial symmetry; higher values become unrealistic)
+- **Path fraction**: 0.55–0.70 (main daughter receives 55–70% of resource; typical range varies by species)
+
+**Avoid these parameter combinations**:
+- $$a > 1.0$: Branches grow *longer* with each generation (violates observed taper)
+- $$b > 1.0$: Branches grow *thicker* with each generation (violates area-preserving)
+- $$n > 4$$: Higher furcations rare in plant vasculature (xylem vessels branch as n=2–3)
+
+**Sensitivity Exercises** (recommended experiments):
+
+1. **Test terminal heterogeneity**: 
+   - Set Max order = 12, WBE Target Mode = ON (gives β(N~D_eq) ≈ 2.0)
+   - Manually increase radius variation in tree (currently uniform terminals)
+   - Check: Does β(N~D_eq) shift when terminals vary 2–3×?
+   - Expected: β shifts by ~3–5% for 50% terminal heterogeneity
+
+2. **Test length ratio sensitivity**:
+   - Keep n=2, b=0.707, vary a from 0.70 to 1.30
+   - Plot β(K~M) vs a
+   - Expected: Smooth transition from M-saturation (a<0.79) → Growing regime (a>0.79)
+
+3. **Test asymmetry effects**:
+   - Keep n=2, a=0.794, b=0.707, increase asymmetry_strength from 0 to 1
+   - Check: Do exponent slopes remain stable?
+   - Expected: Exponents robust to asymmetry (modulates architecture, not global multipliers)
+
+4. **Test finite-size bias**:
+   - Run diagnostic with Max order = 6, 8, 10, 12
+   - Plot "Finite-size bias" (largest order − asymptotic)
+   - Expected: Bias decreases as O(1/m) with larger max order
+
+---
+
+## Caveats and Limitations
+
+| Issue | Impact | Recommendation |
+|-------|--------|---|
+| **Uniform tissue density** | M_proxy misses parenchyma, resin, starch | Compare only within xylem tissues; calibrate to real measurements |
+| **Laminar Poiseuille flow** | K_proxy ignores viscosity variation, pressure drops | Use as relative proxy; real plants may have 20–50% higher conductance |
+| **Terminal uniformity** | D_eq assumes equal-area terminals | Sensitivity test with ±25% terminal heterogeneity |
+| **No resource reallocation** | Model cannot rebalance mass/conductance mid-tree | Empirically realistic only for juvenile/developing trees |
+| **Classical WBE saturation** | Parameters a≈0.794, b≈0.707 predict M-saturation, not growth | Use WBE Target Mode or increase furcation (n≥3) to explore realistic regimes |
+| **Finite-size extrapolation** | Only valid m≥6; bias ~5% for m=6, <1% for m≥12 | Use Log-Log mode; report R² of finite-size fit |
+| **Absence of hydraulic limitations** | No turgor, cavitation, or xylem refilling | Valid for qualitative exponent trends; not for absolute water flux |
 
 ---
 

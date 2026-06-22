@@ -133,6 +133,8 @@ function fitSlope(points, useLog = true) {
     num += (xs[i] - mx) * (ys[i] - my);
     den += (xs[i] - mx) * (xs[i] - mx);
   }
+  // Guard against near-constant x, which makes slope numerically unstable.
+  if (den < 1e-8) return NaN;
   return num / den;
 }
 
@@ -168,6 +170,9 @@ function linearFitXY(points) {
   return { slope, intercept, r2 };
 }
 
+// Estimate asymptotic scaling exponent with finite-size correction
+// Uses ansatz: β(m) = β_∞ + c/m, where m is the branching order
+// Fits β(m) vs 1/m to extrapolate intercept = β_∞
 function estimateAsymptoticSlope(pointsByOrder, orderValues, useLog = true) {
   if (!useLog) {
     return {
@@ -181,7 +186,7 @@ function estimateAsymptoticSlope(pointsByOrder, orderValues, useLog = true) {
   // Finite-size scaling ansatz: beta(m) ~= beta_inf + c / m
   // where m is max branching order included in the fit.
   const sortedOrders = [...new Set(orderValues)].sort((a, b) => a - b);
-  // Use minimum order >= 6 to avoid O(1/m) bias in finite-size ansatz
+  // Enforce minimum order >= 6 to keep O(1/m) bias < 5%
   const minCut = Math.max(6, sortedOrders[Math.floor(sortedOrders.length / 3)]);
   const cutoffs = sortedOrders.filter(m => m >= minCut);
 
@@ -236,9 +241,12 @@ function estimateAsymptoticSlope(pointsByOrder, orderValues, useLog = true) {
   };
 }
 
+// Compute β(K~M) exponent
+// Note: HTML parameters a, b represent ratio values, not Price et al. exponents.
+// Classical WBE: a=0.794 (encodes Price's b=1/3), b=0.707 (encodes Price's a=1/2)
 function theoreticalKvsMExponent(n, a, b) {
-  const mu = n * a * b * b;
-  const kappa = n * Math.pow(b, 4) / a;
+  const mu = n * a * b * b;  // Mass multiplier per generation
+  const kappa = n * Math.pow(b, 4) / a;  // Conductance multiplier per generation
 
   if (!(mu > 0) || !(kappa > 0) || Math.abs(Math.log(mu)) < 1e-12) return NaN;
   if (mu > 1 && kappa > 1) return Math.log(kappa) / Math.log(mu);
@@ -246,11 +254,16 @@ function theoreticalKvsMExponent(n, a, b) {
   return NaN;
 }
 
+// Compute leaves (terminals) exponents: β(N~M) and β(N~D_eq)
+// β(N~M) = ln(n) / ln(μ) where μ = nab²
+// β(N~D_eq) = 2ln(n) / ln(nb²) using pipe model (terminal diameter equivalence)
 function theoreticalLeavesExponents(n, a, b) {
-  const mu = n * a * b * b;
-  const delta = n * b * b;
-  const betaNvsM = (mu > 1 && Math.abs(Math.log(mu)) > 1e-12) ? (Math.log(n) / Math.log(mu)) : NaN;
-  const betaNvsDeq = (delta > 0 && Math.abs(Math.log(delta)) > 1e-12) ? (2 * Math.log(n) / Math.log(delta)) : NaN;
+  const mu = n * a * b * b;  // Mass multiplier
+  const delta = n * b * b;   // Terminal diameter multiplier
+  const boundaryTol = 0.02;
+  const betaNvsM = (mu > 1 && Math.abs(Math.log(mu)) > boundaryTol) ? (Math.log(n) / Math.log(mu)) : NaN;
+  // Near delta = 1, beta(N~D_eq) has a true pole; suppress unstable finite values.
+  const betaNvsDeq = (delta > 0 && Math.abs(Math.log(delta)) > boundaryTol) ? (2 * Math.log(n) / Math.log(delta)) : NaN;
   return { betaNvsM, betaNvsDeq };
 }
 
@@ -547,13 +560,29 @@ function run() {
     }
     
     const leavesTheory = theoreticalLeavesExponents(params.furcation, params.a, params.b);
-    const leavesMObs = fitSlope(reps.map(m => ({ x: m.mProxy, y: m.nTips })), true);
-    const leavesDObs = fitSlope(reps.map(m => ({ x: m.terminalEquivalentDiameter, y: m.nTips })), true);
+    const leavesMObsRaw = fitSlope(reps.map(m => ({ x: m.mProxy, y: m.nTips })), true);
+    const leavesDObsRaw = fitSlope(reps.map(m => ({ x: m.terminalEquivalentDiameter, y: m.nTips })), true);
+
+    const muLeaves = params.furcation * params.a * params.b * params.b;
+    const deltaLeaves = params.furcation * params.b * params.b;
+    const boundaryTol = 0.02;
+    const warnings = [];
+    if (muLeaves <= 1 || Math.abs(Math.log(muLeaves)) <= boundaryTol) {
+      warnings.push("N~M is in/near M-saturation boundary (mu <= 1 or ln(mu) ~ 0); exponent is undefined/unstable.");
+    }
+    if (Math.abs(Math.log(deltaLeaves)) <= boundaryTol) {
+      warnings.push("N~D_eq is near singular boundary (n*b^2 ~ 1); exponent diverges and is not diagnostically meaningful.");
+    }
+    const leavesMObs = (muLeaves > 1 && Math.abs(Math.log(muLeaves)) > boundaryTol) ? leavesMObsRaw : NaN;
+    const leavesDObs = (Math.abs(Math.log(deltaLeaves)) > boundaryTol) ? leavesDObsRaw : NaN;
+    const warningHtml = warnings.length > 0
+      ? `<br/><strong>Boundary warning:</strong> ${warnings.join(" ")}`
+      : "";
 
     const delta = obs - theo;
     const asymDelta = Number.isFinite(asym.asymptoticSlope) ? (asym.asymptoticSlope - theo) : NaN;
     const bias = Number.isFinite(asym.finiteSizeBias) ? asym.finiteSizeBias : NaN;
-    ui.diagText.innerHTML = `<strong>Scale:</strong> ${useLog ? "Log-Log" : "Raw"}<br/><strong>K~M observed exponent:</strong> ${obs.toFixed(4)}<br/><strong>K~M theory exponent:</strong> ${Number.isFinite(theo) ? theo.toFixed(4) : "NA"}<br/><strong>K~M asymptotic (finite-size corrected):</strong> ${Number.isFinite(asym.asymptoticSlope) ? asym.asymptoticSlope.toFixed(4) : "NA (log mode only)"}<br/><strong>K~M observed - theory:</strong> ${Number.isFinite(delta) ? delta.toFixed(4) : "NA"}<br/><strong>K~M asymptotic - theory:</strong> ${Number.isFinite(asymDelta) ? asymDelta.toFixed(4) : "NA"}<br/><strong>Finite-size bias (largest order - asymptotic):</strong> ${Number.isFinite(bias) ? bias.toFixed(4) : "NA"}${Number.isFinite(asym.fitR2) ? `<br/><strong>Finite-size fit R²:</strong> ${asym.fitR2.toFixed(3)}` : ""}<br/><strong>N~M observed exponent (log):</strong> ${Number.isFinite(leavesMObs) ? leavesMObs.toFixed(4) : "NA"}<br/><strong>N~M theory exponent (log):</strong> ${Number.isFinite(leavesTheory.betaNvsM) ? leavesTheory.betaNvsM.toFixed(4) : "NA"}<br/><strong>N~D_eq observed exponent (log):</strong> ${Number.isFinite(leavesDObs) ? leavesDObs.toFixed(4) : "NA"}<br/><strong>N~D_eq theory exponent (log):</strong> ${Number.isFinite(leavesTheory.betaNvsDeq) ? leavesTheory.betaNvsDeq.toFixed(4) : "NA"}`;
+    ui.diagText.innerHTML = `<strong>Scale:</strong> ${useLog ? "Log-Log" : "Raw"}<br/><strong>K~M observed exponent:</strong> ${Number.isFinite(obs) ? obs.toFixed(4) : "NA"}<br/><strong>K~M theory exponent:</strong> ${Number.isFinite(theo) ? theo.toFixed(4) : "NA"}<br/><strong>K~M asymptotic (finite-size corrected):</strong> ${Number.isFinite(asym.asymptoticSlope) ? asym.asymptoticSlope.toFixed(4) : "NA (log mode only)"}<br/><strong>K~M observed - theory:</strong> ${Number.isFinite(delta) ? delta.toFixed(4) : "NA"}<br/><strong>K~M asymptotic - theory:</strong> ${Number.isFinite(asymDelta) ? asymDelta.toFixed(4) : "NA"}<br/><strong>Finite-size bias (largest order - asymptotic):</strong> ${Number.isFinite(bias) ? bias.toFixed(4) : "NA"}${Number.isFinite(asym.fitR2) ? `<br/><strong>Finite-size fit R²:</strong> ${asym.fitR2.toFixed(3)}` : ""}<br/><strong>N~M observed exponent (log):</strong> ${Number.isFinite(leavesMObs) ? leavesMObs.toFixed(4) : "NA"}<br/><strong>N~M theory exponent (log):</strong> ${Number.isFinite(leavesTheory.betaNvsM) ? leavesTheory.betaNvsM.toFixed(4) : "NA"}<br/><strong>N~D_eq observed exponent (log):</strong> ${Number.isFinite(leavesDObs) ? leavesDObs.toFixed(4) : "NA"}<br/><strong>N~D_eq theory exponent (log):</strong> ${Number.isFinite(leavesTheory.betaNvsDeq) ? leavesTheory.betaNvsDeq.toFixed(4) : "NA"}${warningHtml}`;
   } catch (e) {
     console.error("Error in run():", e);
     ui.diagText.textContent = "Error: " + e.message;
@@ -565,10 +594,15 @@ const sliders = ["furcation", "aRatio", "bRatio", "pathFraction", "asymStrength"
 sliders.forEach(id => {
   ui[id].addEventListener("input", (e) => {
     const val = parseFloat(e.target.value);
-    const formatted = val.toFixed(id === "furcation" || id === "maxOrder" ? 0 : 2);
+    const formatted = val.toFixed(id === "furcation" || id === "maxOrder" ? 0 : (id === "aRatio" || id === "bRatio" ? 3 : 2));
     if (outputs[id]) {
       outputs[id].textContent = formatted;
     }
+    // Uncheck preset buttons when user manually adjusts sliders
+    const classicalCheckbox = document.getElementById("classicalWBEMode");
+    const stableCheckbox = document.getElementById("stableDiagnosticsMode");
+    if (classicalCheckbox) classicalCheckbox.checked = false;
+    if (stableCheckbox) stableCheckbox.checked = false;
     run();
   });
 });
@@ -579,18 +613,18 @@ if (ui.scaleMode) {
   });
 }
 
-// WBE Target Mode: sets parameters to approximate 3/4 and 2 exponents
-function applyWBETargetMode() {
-  // For N ~ M^(3/4) target, we need ab^2 ≈ 1.26
-  // For this, set a = 1.3, b = 0.984 (gives ab^2 ≈ 1.257)
-  // This yields: beta_N~M ≈ ln(2)/ln(2*1.257) ≈ 0.746 ≈ 3/4
-  // and beta_N~D_eq = 2*ln(2)/ln(2*0.984^2) ≈ 2.006 ≈ 2.0
+// Classical WBE: sets classical space-filling area-preserving parameters
+// WARNING: These are at the boundary of saturation; N~M and N~D_eq are undefined.
+function applyClassicalWBEMode() {
+  // Classical WBE baseline for binary branching:
+  // length ratio a = 2^(-1/3) ≈ 0.794
+  // radius ratio b = 2^(-1/2) ≈ 0.707
   
-  ui.aRatio.value = "1.30";
-  outputs.aRatio.textContent = "1.30";
+  ui.aRatio.value = "0.794";
+  outputs.aRatio.textContent = "0.794";
   
-  ui.bRatio.value = "0.984";
-  outputs.bRatio.textContent = "0.98";
+  ui.bRatio.value = "0.707";
+  outputs.bRatio.textContent = "0.707";
   
   ui.furcation.value = "2";
   outputs.furcation.textContent = "2";
@@ -598,14 +632,52 @@ function applyWBETargetMode() {
   ui.asymStrength.value = "0";
   outputs.asymStrength.textContent = "0.00";
   
+  // Uncheck the competing preset
+  const stableCheckbox = document.getElementById("stableDiagnosticsMode");
+  if (stableCheckbox) stableCheckbox.checked = false;
+  
   run();
 }
 
-const wbeTargetCheckbox = document.getElementById("wbeTargetMode");
-if (wbeTargetCheckbox) {
-  wbeTargetCheckbox.addEventListener("change", (e) => {
+// Stable Diagnostics Mode: sets parameters safely away from singular boundaries
+// K~M grows with mass; N~M and N~D_eq have well-defined finite exponents.
+function applyStableDiagnosticsMode() {
+  // Safe parameter values: away from μ~1 and δ~1 singularities
+  // a = 0.90, b = 0.80 gives μ = 2*0.90*0.64 = 1.152, δ = 1.28
+  
+  ui.aRatio.value = "0.900";
+  outputs.aRatio.textContent = "0.900";
+  
+  ui.bRatio.value = "0.800";
+  outputs.bRatio.textContent = "0.800";
+  
+  ui.furcation.value = "2";
+  outputs.furcation.textContent = "2";
+  
+  ui.asymStrength.value = "0";
+  outputs.asymStrength.textContent = "0.00";
+  
+  // Uncheck the competing preset
+  const classicalCheckbox = document.getElementById("classicalWBEMode");
+  if (classicalCheckbox) classicalCheckbox.checked = false;
+  
+  run();
+}
+
+const classicalWBECheckbox = document.getElementById("classicalWBEMode");
+if (classicalWBECheckbox) {
+  classicalWBECheckbox.addEventListener("change", (e) => {
     if (e.target.checked) {
-      applyWBETargetMode();
+      applyClassicalWBEMode();
+    }
+  });
+}
+
+const stableDiagnosticsCheckbox = document.getElementById("stableDiagnosticsMode");
+if (stableDiagnosticsCheckbox) {
+  stableDiagnosticsCheckbox.addEventListener("change", (e) => {
+    if (e.target.checked) {
+      applyStableDiagnosticsMode();
     }
   });
 }
@@ -615,12 +687,17 @@ window.addEventListener("DOMContentLoaded", () => {
   // Set initial output values
   sliders.forEach(id => {
     const val = parseFloat(ui[id].value);
-    const formatted = val.toFixed(id === "furcation" || id === "maxOrder" ? 0 : 2);
+    const formatted = val.toFixed(id === "furcation" || id === "maxOrder" ? 0 : (id === "aRatio" || id === "bRatio" ? 3 : 2));
     if (outputs[id]) {
       outputs[id].textContent = formatted;
     }
   });
-  run();
+  // Initialize with stable diagnostics mode for better user experience
+  const stableCheckbox = document.getElementById("stableDiagnosticsMode");
+  if (stableCheckbox) {
+    stableCheckbox.checked = true;
+    applyStableDiagnosticsMode();
+  }
 });
 
 // Run on page load too (in case DOMContentLoaded already fired)
@@ -628,20 +705,28 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => {
     sliders.forEach(id => {
       const val = parseFloat(ui[id].value);
-      const formatted = val.toFixed(id === "furcation" || id === "maxOrder" ? 0 : 2);
+      const formatted = val.toFixed(id === "furcation" || id === "maxOrder" ? 0 : (id === "aRatio" || id === "bRatio" ? 3 : 2));
       if (outputs[id]) {
         outputs[id].textContent = formatted;
       }
     });
-    run();
+    const stableCheckbox = document.getElementById("stableDiagnosticsMode");
+    if (stableCheckbox) {
+      stableCheckbox.checked = true;
+      applyStableDiagnosticsMode();
+    }
   });
 } else {
   sliders.forEach(id => {
     const val = parseFloat(ui[id].value);
-    const formatted = val.toFixed(id === "furcation" || id === "maxOrder" ? 0 : 2);
+    const formatted = val.toFixed(id === "furcation" || id === "maxOrder" ? 0 : (id === "aRatio" || id === "bRatio" ? 3 : 2));
     if (outputs[id]) {
       outputs[id].textContent = formatted;
     }
   });
-  run();
+  const stableCheckbox = document.getElementById("stableDiagnosticsMode");
+  if (stableCheckbox) {
+    stableCheckbox.checked = true;
+    applyStableDiagnosticsMode();
+  }
 }

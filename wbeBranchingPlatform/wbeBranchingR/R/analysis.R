@@ -151,3 +151,130 @@ estimate_scaling_exponent <- function(df, x = "M_proxy", y = "K_proxy") {
     conf_high = slope + crit * se
   )
 }
+
+theoretical_leaves_exponents <- function(furcation_ratio, length_ratio, radius_ratio) {
+  n <- furcation_ratio
+  a <- length_ratio
+  b <- radius_ratio
+
+  if (n <= 1 || a <= 0 || b <= 0) {
+    return(list(betaNvsM = NA_real_, betaNvsDeq = NA_real_))
+  }
+
+  mu <- n * a * (b^2)
+  delta <- n * (b^2)
+
+  betaNvsM <- if (mu > 1 && abs(log(mu)) > 1e-12) {
+    log(n) / log(mu)
+  } else {
+    NA_real_
+  }
+
+  betaNvsDeq <- if (delta > 0 && abs(log(delta)) > 1e-12) {
+    2 * log(n) / log(delta)
+  } else {
+    NA_real_
+  }
+
+  list(betaNvsM = betaNvsM, betaNvsDeq = betaNvsDeq)
+}
+
+estimate_asymptotic_slope <- function(metrics_with_order, order_values = NULL, use_log = TRUE) {
+  if (!use_log) {
+    return(list(
+      asymptotic_slope = NA_real_,
+      finite_size_bias = NA_real_,
+      fit_r2 = NA_real_,
+      series = tibble::tibble()
+    ))
+  }
+
+  if (!is.data.frame(metrics_with_order)) {
+    stop("metrics_with_order must be a data.frame with 'order' column")
+  }
+
+  if (!"order" %in% names(metrics_with_order)) {
+    stop("metrics_with_order must contain an 'order' column")
+  }
+
+  if (is.null(order_values)) {
+    order_values <- sort(unique(metrics_with_order$order))
+  }
+
+  sorted_orders <- sort(unique(order_values))
+  min_cut <- max(6, sorted_orders[ceiling(length(sorted_orders) / 3)])
+  cutoffs <- sorted_orders[sorted_orders >= min_cut]
+
+  if (length(cutoffs) < 3) {
+    return(list(
+      asymptotic_slope = NA_real_,
+      finite_size_bias = NA_real_,
+      fit_r2 = NA_real_,
+      series = tibble::tibble()
+    ))
+  }
+
+  slope_from_order_means <- function(m_cutoff) {
+    subset <- metrics_with_order %>%
+      dplyr::filter(order <= m_cutoff, M_proxy > 0, K_proxy > 0)
+
+    if (nrow(subset) < 6) return(NA_real_)
+
+    order_means <- subset %>%
+      dplyr::mutate(
+        log_m = log(M_proxy),
+        log_k = log(K_proxy)
+      ) %>%
+      dplyr::group_by(order) %>%
+      dplyr::summarise(
+        log_m_mean = mean(log_m),
+        log_k_mean = mean(log_k),
+        .groups = "drop"
+      )
+
+    if (nrow(order_means) < 3) return(NA_real_)
+
+    fit <- stats::lm(log_k_mean ~ log_m_mean, data = order_means)
+    coef(fit)[2]
+  }
+
+  slope_series <- tibble::tibble(
+    cutoff_order = cutoffs,
+    beta_m = NA_real_,
+    inv_m = 1 / cutoffs
+  )
+
+  for (i in seq_along(cutoffs)) {
+    slope_series$beta_m[i] <- slope_from_order_means(cutoffs[i])
+  }
+
+  slope_series <- slope_series %>%
+    dplyr::filter(is.finite(beta_m))
+
+  if (nrow(slope_series) < 3) {
+    return(list(
+      asymptotic_slope = NA_real_,
+      finite_size_bias = NA_real_,
+      fit_r2 = NA_real_,
+      series = slope_series
+    ))
+  }
+
+  fit <- stats::lm(beta_m ~ inv_m, data = slope_series)
+  asymptotic_slope <- coef(fit)[1]
+  fit_r2 <- summary(fit)$r.squared
+  largest_m <- max(slope_series$cutoff_order)
+  beta_largest <- slope_series$beta_m[slope_series$cutoff_order == largest_m][1]
+  finite_size_bias <- if (is.finite(beta_largest)) {
+    beta_largest - asymptotic_slope
+  } else {
+    NA_real_
+  }
+
+  list(
+    asymptotic_slope = asymptotic_slope,
+    finite_size_bias = finite_size_bias,
+    fit_r2 = fit_r2,
+    series = slope_series
+  )
+}

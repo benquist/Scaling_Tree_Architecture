@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>wbeBranchingPlatform JS Formula Test</title>
+</head>
+<body>
+    <h1>wbeBranchingPlatform JS Formula Test</h1>
+    <p>Open browser console to see test results.</p>
+    <script>
+        // Copy the JS functions from script.js
+        function theoreticalKvsMExponent(n, a, b) {
+          const mu = n * a * b * b;
+          const kappa = n * Math.pow(b, 4) / a;
+
+          if (!(mu > 0) || !(kappa > 0) || Math.abs(Math.log(mu)) < 1e-12) return NaN;
+          if (mu > 1 && kappa > 1) return Math.log(kappa) / Math.log(mu);
+          if (mu > 1 && kappa <= 1) return 0;
+          return NaN;
+        }
+
+        function theoreticalLeavesExponents(n, a, b) {
+          const mu = n * a * b * b;
+          const delta = n * b * b;
+          const betaNvsM = (mu > 1 && Math.abs(Math.log(mu)) > 1e-12) ? (Math.log(n) / Math.log(mu)) : NaN;
+          const betaNvsDeq = (delta > 0 && Math.abs(Math.log(delta)) > 1e-12) ? (2 * Math.log(n) / Math.log(delta)) : NaN;
+          return { betaNvsM, betaNvsDeq };
+        }
+
+        console.log("===== TEST SET 1: Classical WBE =====");
+        console.log("Parameters: n=2, a=0.794, b=0.707\n");
+
+        let n1 = 2, a1 = 0.794, b1 = 0.707;
+        let mu1 = n1 * a1 * (b1**2);
+        let kappa1 = n1 * (b1**4) / a1;
+        let beta_km_1 = theoreticalKvsMExponent(n1, a1, b1);
+        let leaves1 = theoreticalLeavesExponents(n1, a1, b1);
+
+        console.log("Calculated μ:", mu1);
+        console.log("Calculated κ:", kappa1);
+        console.log("Regime:", mu1 > 1 && kappa1 > 1 ? "Growing" : (mu1 > 1 && kappa1 <= 1 ? "K-saturation" : "M-saturation"));
+        console.log("β(K~M):", beta_km_1);
+        console.log("β(N~M):", leaves1.betaNvsM);
+        console.log("β(N~D_eq):", leaves1.betaNvsDeq);
+
+        console.log("\n===== TEST SET 2: WBE Target Mode =====");
+        console.log("Parameters: n=2, a=1.30, b=0.984\n");
+
+        let n2 = 2, a2 = 1.30, b2 = 0.984;
+        let mu2 = n2 * a2 * (b2**2);
+        let kappa2 = n2 * (b2**4) / a2;
+        let beta_km_2 = theoreticalKvsMExponent(n2, a2, b2);
+        let leaves2 = theoreticalLeavesExponents(n2, a2, b2);
+
+        console.log("Calculated μ:", mu2);
+        console.log("Calculated κ:", kappa2);
+        console.log("Regime:", mu2 > 1 && kappa2 > 1 ? "Growing" : (mu2 > 1 && kappa2 <= 1 ? "K-saturation" : "M-saturation"));
+        console.log("β(K~M):", beta_km_2);
+        console.log("Expected β(K~M):", Math.log(kappa2) / Math.log(mu2));
+        console.log("β(N~M):", leaves2.betaNvsM);
+        console.log("Expected β(N~M) = ln(2) / ln(μ):", Math.log(2) / Math.log(mu2));
+        console.log("β(N~D_eq):", leaves2.betaNvsDeq);
+        console.log("Expected β(N~D_eq) = 2*ln(2) / ln(2*b²):", 2 * Math.log(2) / Math.log(2 * b2**2));
+
+        console.log("\n===== TEST SET 3: High-Branching =====");
+        console.log("Parameters: n=3, a=0.80, b=0.75\n");
+
+        let n3 = 3, a3 = 0.80, b3 = 0.75;
+        let mu3 = n3 * a3 * (b3**2);
+        let kappa3 = n3 * (b3**4) / a3;
+        let beta_km_3 = theoreticalKvsMExponent(n3, a3, b3);
+        let leaves3 = theoreticalLeavesExponents(n3, a3, b3);
+
+        console.log("Calculated μ:", mu3);
+        console.log("Calculated κ:", kappa3);
+        console.log("Regime:", mu3 > 1 && kappa3 > 1 ? "Growing" : (mu3 > 1 && kappa3 <= 1 ? "K-saturation" : "M-saturation"));
+        console.log("β(K~M):", beta_km_3);
+        console.log("β(N~M):", leaves3.betaNvsM);
+        console.log("β(N~D_eq):", leaves3.betaNvsDeq);
+    </script>
+</body>
+</html>

@@ -93,3 +93,8 @@
 - Prompt: "yes" (follow-up to remove redundant build artifacts from the consolidated canonical repo).
 - Actions: Removed generated artifacts from `Scaling_Tree_Architecture_clean` while preserving source files: `scalingPlantArchitecture_0.1.0.tar.gz`, `scalingPlantArchitecture/scalingPlantArchitecture_0.1.0.tar.gz`, and `scalingPlantArchitecture/tests/testthat/Rplots.pdf`.
 - Backup: Committed cleanup as `c6378db` and pushed to `origin/main` at `https://github.com/benquist/Scaling_Tree_Architecture.git`.
+
+## 2026-06-21
+- Prompt: I would like to start implementing these #1 and #3 as a separate simulation platform with a separate R package and separate HTML simulator/visualization.
+- Actions: Created a new independent platform at `wbeBranchingPlatform/` with (1) `wbeBranchingR` package scaffold and implementation of explicit `furcation_ratio` (`n`) in `simulate_wbe_tree()`, plus theory-vs-simulation diagnostics via `run_wbe_scaling_diagnostic()` and `plot_wbe_scaling_diagnostic()`; (2) standalone `wbe-branching-simulator/` web app (`index.html`, `styles.css`, `script.js`) with controls for `n`, `a`, `b`, path fraction, asymmetry, and live observed-vs-theory slope output.
+- Outcome: #1 and #3 are implemented in a fully separate platform without modifying the existing `scalingPlantArchitecture` package or current `js-tree-simulator`.

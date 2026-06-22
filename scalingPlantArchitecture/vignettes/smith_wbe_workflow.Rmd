@@ -1,8 +1,6 @@
 ---
 title: "Smith-Style Tree Simulation and WBE Scaling Workflow"
-output:
-  html_document:
-    self_contained: false
+output: html_document
 ---
 
 ```{r setup, include=FALSE}
