@@ -109,12 +109,17 @@ function metrics(tree) {
   const terminalArea = terminalEdges.reduce((acc, e) => acc + Math.PI * e.radius * e.radius, 0);
   // Effective basal diameter from distal conducting area (pipe-model style).
   const terminalEquivalentDiameter = terminalArea > 0 ? (2 * Math.sqrt(terminalArea / Math.PI)) : NaN;
+  
+  // Basal diameter: diameter of main trunk at root (from node id=1)
+  const mainRootEdge = tree.edges.find(e => e.from === 1 && e.isMain);
+  const basalDiameter = mainRootEdge ? 2 * mainRootEdge.radius : NaN;
 
   return {
     nTips: tipNodes.length,
     mProxy: stemVol,
     kProxy,
     terminalEquivalentDiameter,
+    basalDiameter,
     maxPath: Math.max(...paths.map(p => p.pathLen), 0)
   };
 }
@@ -532,12 +537,12 @@ function run() {
     }
 
     if (ui.leavesDiameterCanvas && ui.leavesDiameterCanvas.getContext) {
-      const leavesVsDiameter = reps.map(m => ({ x: m.terminalEquivalentDiameter, y: m.nTips }));
+      const leavesVsBasalDiameter = reps.map(m => ({ x: m.basalDiameter, y: m.nTips }));
       drawLeavesScatter(
         ui.leavesDiameterCanvas,
-        leavesVsDiameter,
-        "Leaves vs Terminal-Equivalent Diameter",
-        useLog ? "ln(Terminal-equivalent diameter)" : "Terminal-equivalent diameter [arbitrary length units]",
+        leavesVsBasalDiameter,
+        "Scaling Diagnostic: Leaves vs Basal Trunk Diameter",
+        useLog ? "ln(Basal trunk diameter)" : "Basal trunk diameter [arbitrary length units]",
         useLog ? "ln(Number of leaves)" : "Number of leaves (tip count) [count]",
         useLog,
         "#0f766e",
