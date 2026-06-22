@@ -537,12 +537,12 @@ function run() {
     }
 
     if (ui.leavesDiameterCanvas && ui.leavesDiameterCanvas.getContext) {
-      const leavesVsBasalDiameter = reps.map(m => ({ x: m.basalDiameter, y: m.nTips }));
+      const leavesVsDiameter = reps.map(m => ({ x: m.terminalEquivalentDiameter, y: m.nTips }));
       drawLeavesScatter(
         ui.leavesDiameterCanvas,
-        leavesVsBasalDiameter,
-        "Scaling Diagnostic: Leaves vs Basal Trunk Diameter",
-        useLog ? "ln(Basal trunk diameter)" : "Basal trunk diameter [arbitrary length units]",
+        leavesVsDiameter,
+        "Scaling Diagnostic: Leaves vs Terminal-Equivalent Diameter",
+        useLog ? "ln(Terminal-equivalent diameter)" : "Terminal-equivalent diameter [arbitrary length units]",
         useLog ? "ln(Number of leaves)" : "Number of leaves (tip count) [count]",
         useLog,
         "#0f766e",
