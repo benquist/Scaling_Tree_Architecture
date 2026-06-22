@@ -537,13 +537,13 @@ function run() {
     }
 
     if (ui.leavesDiameterCanvas && ui.leavesDiameterCanvas.getContext) {
-      const leavesVsDiameter = reps.map(m => ({ x: m.terminalEquivalentDiameter, y: m.nTips }));
+      const leavesVsDiameter = reps.map(m => ({ x: m.basalDiameter, y: m.nTips }));
       drawLeavesScatter(
         ui.leavesDiameterCanvas,
         leavesVsDiameter,
-        "Scaling Diagnostic: Leaves vs Terminal-Equivalent Diameter",
-        useLog ? "ln(Terminal-equivalent diameter)" : "Terminal-equivalent diameter [arbitrary length units]",
-        useLog ? "ln(Number of leaves)" : "Number of leaves (tip count) [count]",
+        "Scaling Diagnostic: Leaves vs Basal Stem Diameter (WBE: N_L ~ D_0^0.75)",
+        useLog ? "ln(Basal stem diameter D_0)" : "Basal stem diameter D_0 [arbitrary length units]",
+        useLog ? "ln(Number of leaves N_L)" : "Number of leaves N_L (tip count) [count]",
         useLog,
         "#0f766e",
         "#b45309"
@@ -566,7 +566,7 @@ function run() {
     
     const leavesTheory = theoreticalLeavesExponents(params.furcation, params.a, params.b);
     const leavesMObsRaw = fitSlope(reps.map(m => ({ x: m.mProxy, y: m.nTips })), true);
-    const leavesDObsRaw = fitSlope(reps.map(m => ({ x: m.terminalEquivalentDiameter, y: m.nTips })), true);
+    const leavesDObsRaw = fitSlope(reps.map(m => ({ x: m.basalDiameter, y: m.nTips })), true);
 
     const muLeaves = params.furcation * params.a * params.b * params.b;
     const deltaLeaves = params.furcation * params.b * params.b;
