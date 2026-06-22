@@ -1,0 +1,106 @@
+
+R version 4.6.0 (2026-04-24) -- "Because it was There"
+Copyright (C) 2026 The R Foundation for Statistical Computing
+Platform: aarch64-apple-darwin23
+
+R is free software and comes with ABSOLUTELY NO WARRANTY.
+You are welcome to redistribute it under certain conditions.
+Type 'license()' or 'licence()' for distribution details.
+
+  Natural language support but running in an English locale
+
+R is a collaborative project with many contributors.
+Type 'contributors()' for more information and
+'citation()' on how to cite R or R packages in publications.
+
+Type 'demo()' for some demos, 'help()' for on-line help, or
+'help.start()' for an HTML browser interface to help.
+Type 'q()' to quit R.
+
+> pkgname <- "wbeBranchingR"
+> source(file.path(R.home("share"), "R", "examples-header.R"))
+> options(warn = 1)
+> library('wbeBranchingR')
+> 
+> base::assign(".oldSearch", base::search(), pos = 'CheckExEnv')
+> base::assign(".old_wd", base::getwd(), pos = 'CheckExEnv')
+> cleanEx()
+> nameEx("wbe_diagnostics")
+> ### * wbe_diagnostics
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: run_wbe_scaling_diagnostic
+> ### Title: Theory-vs-Simulation Scaling Diagnostics
+> ### Aliases: run_wbe_scaling_diagnostic plot_wbe_scaling_diagnostic
+> ###   theoretical_mass_conductance_exponent
+> 
+> ### ** Examples
+> 
+> p <- new_wbe_params(furcation_ratio = 3, seed = 10)
+> out <- run_wbe_scaling_diagnostic(order_values = 4:7, n_rep = 5, base_params = p)
+> out$theoretical_exponent
+[1] -0.3301847
+> plot_wbe_scaling_diagnostic(out)
+Warning: Use of `metrics$log_M_proxy` is discouraged.
+ℹ Use `log_M_proxy` instead.
+Warning: Use of `metrics$log_K_proxy` is discouraged.
+ℹ Use `log_K_proxy` instead.
+> 
+> 
+> 
+> cleanEx()
+> nameEx("wbe_params")
+> ### * wbe_params
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: new_wbe_params
+> ### Title: Create and Update WBE Parameter Sets
+> ### Aliases: new_wbe_params update_wbe_params
+> 
+> ### ** Examples
+> 
+> p <- new_wbe_params(furcation_ratio = 3, seed = 42)
+> p2 <- update_wbe_params(p, list(length_ratio = 0.78))
+> 
+> 
+> 
+> cleanEx()
+> nameEx("wbe_simulation")
+> ### * wbe_simulation
+> 
+> flush(stderr()); flush(stdout())
+> 
+> ### Name: simulate_wbe_tree
+> ### Title: Simulate WBE Branching Trees and Compute Metrics
+> ### Aliases: simulate_wbe_tree compute_wbe_metrics
+> 
+> ### ** Examples
+> 
+> p <- new_wbe_params(furcation_ratio = 2, seed = 1)
+> tr <- simulate_wbe_tree(p)
+> compute_wbe_metrics(tr)
+# A tibble: 1 × 8
+  n_edges n_tips max_order_realized stem_volume_total mean_path_length
+    <int>  <int>              <int>             <dbl>            <dbl>
+1    1405    703                 11             0.106             4.85
+# ℹ 3 more variables: max_path_length <dbl>, M_proxy <dbl>, K_proxy <dbl>
+> 
+> 
+> 
+> ### * <FOOTER>
+> ###
+> cleanEx()
+> options(digits = 7L)
+> base::cat("Time elapsed: ", proc.time() - base::get("ptime", pos = 'CheckExEnv'),"\n")
+Time elapsed:  13.07 0.255 13.417 0 0 
+> grDevices::dev.off()
+null device 
+          1 
+> ###
+> ### Local variables: ***
+> ### mode: outline-minor ***
+> ### outline-regexp: "\\(> \\)?### [*]+" ***
+> ### End: ***
+> quit('no')

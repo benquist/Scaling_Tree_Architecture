@@ -1,0 +1,5 @@
+new_wbe_params          Create and Update WBE Parameter Sets
+run_wbe_scaling_diagnostic
+                        Theory-vs-Simulation Scaling Diagnostics
+simulate_wbe_tree       Simulate WBE Branching Trees and Compute
+                        Metrics

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WBE Furcation Simulator</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>WBE Furcation Simulator</h1>
+    <p>Explicit n-furcation and theory-vs-simulation scaling diagnostics. Drag sliders to explore tree architecture.</p>
+  </header>
+
+  <main class="layout">
+    <aside class="controls">
+      <fieldset>
+        <legend>WBE Parameters</legend>
+        <label>Furcation ratio (n)
+          <input id="furcation" type="range" min="2" max="6" step="1" value="2">
+          <output for="furcation">2</output>
+        </label>
+
+        <label>Length ratio (a)
+          <input id="aRatio" type="range" min="0.5" max="1.3" step="0.01" value="0.794">
+          <output for="aRatio">0.79</output>
+        </label>
+
+        <label>Radius ratio (b)
+          <input id="bRatio" type="range" min="0.45" max="1.0" step="0.01" value="0.707">
+          <output for="bRatio">0.71</output>
+        </label>
+
+        <label style="display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem;">
+          <input id="wbeTargetMode" type="checkbox">
+          <span>WBE Target Mode (3/4 & 2)</span>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Asymmetry</legend>
+        <label>Path fraction
+          <input id="pathFraction" type="range" min="0.51" max="0.95" step="0.01" value="0.62">
+          <output for="pathFraction">0.62</output>
+        </label>
+
+        <label>Asymmetry strength
+          <input id="asymStrength" type="range" min="0" max="1" step="0.01" value="0.4">
+          <output for="asymStrength">0.40</output>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Depth</legend>
+        <label>Max order (branching depth)
+          <input id="maxOrder" type="range" min="6" max="12" step="1" value="10">
+          <output for="maxOrder">10</output>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Plot Scale</legend>
+        <label for="scaleMode">Diagnostic scale
+          <select id="scaleMode">
+            <option value="log" selected>Log-Log</option>
+            <option value="raw">Raw</option>
+          </select>
+        </label>
+      </fieldset>
+
+      <div id="diagText" class="diag"></div>
+    </aside>
+
+    <section class="viz-column">
+      <section class="viz-panel">
+        <h2>Tree Architecture (max order)</h2>
+        <svg id="treeSvg" viewBox="0 0 900 420" aria-label="Tree visualization at max order"></svg>
+      </section>
+
+      <section class="viz-panel">
+        <h2>Architecture Progression Across Sizes</h2>
+        <div id="treeComparison" class="tree-grid"></div>
+      </section>
+
+      <section class="viz-panel">
+        <h2>Scaling Diagnostic: K (Conductance) vs M (Volume)</h2>
+        <canvas id="scalingCanvas" width="900" height="300" aria-label="Scaling diagnostic"></canvas>
+      </section>
+
+      <section class="viz-panel">
+        <h2>Scaling Diagnostic: Leaves vs Terminal-Equivalent Diameter</h2>
+        <canvas id="leavesDiameterCanvas" width="900" height="280" aria-label="Leaves versus terminal-equivalent diameter"></canvas>
+      </section>
+
+      <section class="viz-panel">
+        <h2>Scaling Diagnostic: Leaves vs Branching Network Volume</h2>
+        <canvas id="leavesVolumeCanvas" width="900" height="280" aria-label="Leaves versus branching network volume"></canvas>
+      </section>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
