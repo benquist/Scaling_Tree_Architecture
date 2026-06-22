@@ -198,6 +198,52 @@ Increase $\text{asymmetry\_strength}$:
 
 ---
 
+## Two Simulation Presets: Classical WBE vs. Stable Diagnostics
+
+The simulator provides two mutually-exclusive preset modes, each with distinct theoretical purpose and expected output:
+
+### Preset 1: Classical WBE (Boundary Exploratory)
+
+**Parameters**: $n=2$, $a \approx 0.794$, $b \approx 0.707$ (exact space-filling and area-preserving ratios)
+
+**Regime**: **M-saturation** (growing regime boundary)
+- $\mu = nab^2 = 0.794 < 1$ → mass shrinks per generation
+- $\kappa = \frac{nb^4}{a} = 0.630 < 1$ → conductance shrinks per generation
+- $\delta = nb^2 = 1.000 \approx 1$ → terminal diameter ratio near identity (pole singularity)
+
+**Expected Diagnostics**:
+- **K~M theory exponent**: NA (M-saturation regime; β undefined)
+- **N~M observed/theory**: NA (M-saturation; observed slope from near-constant x-variance → numerically unstable)
+- **N~D_eq observed/theory**: NA or extreme values (singular boundary at $\delta = 1$; exponent diverges)
+- **Boundary warnings**: Explicit text displayed in diagnostics
+
+**Interpretation**: Classical WBE parameters encode infinite self-similar hierarchies. Real finite trees cannot achieve these exact ratios without shrinking; the simulator correctly treats this as a pedagogical boundary case. **Do not use this preset for exponent estimation; use it to understand why empirical plants must deviate from classical assumptions**.
+
+**References**: West et al. (1997) derivation; Savage et al. (2008, 2010) empirical deviations.
+
+---
+
+### Preset 2: Stable Diagnostics Mode (DEFAULT)
+
+**Parameters**: $n=2$, $a = 0.900$, $b = 0.800$ (realistic, away from boundaries)
+
+**Regime**: **Growing** (well-defined scaling)
+- $\mu = nab^2 = 1.152 > 1$ → mass grows per generation
+- $\kappa = \frac{nb^4}{a} = 1.422 > 1$ → conductance grows per generation
+- $|\ln(\delta)| = |\ln(1.28)| = 0.247 > 0.05$ → terminal diameter ratio well away from singularity
+
+**Expected Diagnostics**:
+- **K~M theory exponent**: $\beta \approx 0.00$ (K-saturation regime: conductance plateaus)
+- **N~M observed/theory**: Both finite (~2.96 and ~4.90)
+- **N~D_eq observed/theory**: Both finite and equal (~5.62)
+- **No boundary warnings**: All exponents well-defined
+
+**Interpretation**: Parameters are safely away from M-saturation and D_eq singularity. All three exponent types are finite, numerically stable, and suitable for convergence testing and pedagogical exploration. **Use this preset for production diagnostics**.
+
+**Biological relevance**: $a=0.900$ and $b=0.800$ are within observed ranges for real vascular systems, making this mode useful for understanding realistic branching scaling, even though these specific values are not empirically calibrated to a particular species.
+
+---
+
 ## Classical WBE Paradox: Why Space-Filling Area-Preserving Parameters Predict M-Saturation
 
 **Observation**: Setting classical WBE parameters ($n=2$, $a \approx 0.794$, $b \approx 0.707$) in this simulator yields **M-saturation** (β undefined), not the expected 3/4 metabolic exponent.
@@ -230,9 +276,18 @@ This paradox highlights that **classical WBE parameters alone do not explain obs
 
 ---
 
-## WBE Target Mode: Caveats
+## Parameter Exploration Beyond Presets
 
-The **WBE Target Mode** (checkbox in control panel) sets $a=1.30$, $b=0.984$, $n=2$ to achieve:
+The two presets (Classical WBE and Stable Diagnostics) define the boundaries of useful parameter space. You can manually adjust $n$, $a$, $b$ using the sliders to explore intermediate regimes:
+
+- **Growing regime** (μ > 1, κ > 1): Exponents finite and well-defined  
+- **K-saturation regime** (μ > 1, κ ≤ 1): Conductance plateaus  
+- **M-saturation regime** (μ ≤ 1): Mass shrinks; slopes undefined  
+- **Near-singular boundary** (|ln(nb²)| < 0.02): Exponents diverge  
+
+**Reference parameter sets**:
+
+The **classical target** (if exploring manually) sets $a=1.30$, $b=0.984$, $n=2$ to achieve:
 $$\beta_{N\sim M} \approx 0.75 \quad \text{(classical 3/4 exponent)}$$
 $$\beta_{N\sim D_{eq}} \approx 2.0$$
 
