@@ -109,10 +109,19 @@ function metrics(tree) {
   const terminalArea = terminalEdges.reduce((acc, e) => acc + Math.PI * e.radius * e.radius, 0);
   // Effective basal diameter from distal conducting area (pipe-model style).
   const terminalEquivalentDiameter = terminalArea > 0 ? (2 * Math.sqrt(terminalArea / Math.PI)) : NaN;
-  
-  // Basal diameter: diameter of main trunk at root (from node id=1)
+
+  // Basal diameter measured at the root edge in this simulated realization.
   const mainRootEdge = tree.edges.find(e => e.from === 1 && e.isMain);
   const basalDiameter = mainRootEdge ? 2 * mainRootEdge.radius : NaN;
+
+  // Size-varying basal diameter proxy: normalize to invariant terminal radius across sizes.
+  // This allows ontogenetic size comparisons (smallest to largest trees) on one x-axis.
+  const meanTerminalRadius = terminalEdges.length > 0
+    ? terminalEdges.reduce((acc, e) => acc + e.radius, 0) / terminalEdges.length
+    : NaN;
+  const basalDiameterSizeProxy = (Number.isFinite(basalDiameter) && meanTerminalRadius > 0)
+    ? (basalDiameter / meanTerminalRadius)
+    : NaN;
 
   return {
     nTips: tipNodes.length,
@@ -120,6 +129,7 @@ function metrics(tree) {
     kProxy,
     terminalEquivalentDiameter,
     basalDiameter,
+    basalDiameterSizeProxy,
     maxPath: Math.max(...paths.map(p => p.pathLen), 0)
   };
 }
@@ -537,13 +547,19 @@ function run() {
     }
 
     if (ui.leavesDiameterCanvas && ui.leavesDiameterCanvas.getContext) {
-      const leavesVsDiameter = reps.map(m => ({ x: m.basalDiameter, y: m.nTips }));
+      const leavesByOrder = ordersForScaling.map(ord => {
+        const subset = reps.filter(m => m.order === ord);
+        const xMean = subset.reduce((acc, m) => acc + m.basalDiameterSizeProxy, 0) / Math.max(1, subset.length);
+        const yMean = subset.reduce((acc, m) => acc + m.nTips, 0) / Math.max(1, subset.length);
+        return { x: xMean, y: yMean, order: ord };
+      }).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x > 0 && p.y > 0);
+
       drawLeavesScatter(
         ui.leavesDiameterCanvas,
-        leavesVsDiameter,
-        "Scaling Diagnostic: Leaves vs Basal Stem Diameter (WBE: N_L ~ D_0^0.75)",
-        useLog ? "ln(Basal stem diameter D_0)" : "Basal stem diameter D_0 [arbitrary length units]",
-        useLog ? "ln(Number of leaves N_L)" : "Number of leaves N_L (tip count) [count]",
+        leavesByOrder,
+        "Scaling Diagnostic: Leaves vs Basal Stem Diameter (ordered by tree size)",
+        useLog ? "ln(Basal stem diameter D_0, size-normalized)" : "Basal stem diameter D_0, size-normalized [a.u.]",
+        useLog ? "ln(Number of leaves N_L)" : "Number of leaves N_L [count]",
         useLog,
         "#0f766e",
         "#b45309"
@@ -566,7 +582,15 @@ function run() {
     
     const leavesTheory = theoreticalLeavesExponents(params.furcation, params.a, params.b);
     const leavesMObsRaw = fitSlope(reps.map(m => ({ x: m.mProxy, y: m.nTips })), true);
-    const leavesDObsRaw = fitSlope(reps.map(m => ({ x: m.basalDiameter, y: m.nTips })), true);
+    const leavesDObsRaw = fitSlope(
+      ordersForScaling.map(ord => {
+        const subset = reps.filter(m => m.order === ord);
+        const xMean = subset.reduce((acc, m) => acc + m.basalDiameterSizeProxy, 0) / Math.max(1, subset.length);
+        const yMean = subset.reduce((acc, m) => acc + m.nTips, 0) / Math.max(1, subset.length);
+        return { x: xMean, y: yMean };
+      }),
+      true
+    );
 
     const muLeaves = params.furcation * params.a * params.b * params.b;
     const deltaLeaves = params.furcation * params.b * params.b;
