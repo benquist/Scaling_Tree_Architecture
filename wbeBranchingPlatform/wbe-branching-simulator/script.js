@@ -635,6 +635,8 @@ function run() {
 
     if (ui.leavesVolumeCanvas && ui.leavesVolumeCanvas.getContext) {
       const leavesVsVolume = reps.map(m => ({ x: m.mProxy, y: m.nTips }));
+      // Use dynamic theory value for reference line (N~M exponent)
+      const leavesMTheoryValue = leavesTheory.betaNvsM;
       drawLeavesScatter(
         ui.leavesVolumeCanvas,
         leavesVsVolume,
@@ -643,7 +645,8 @@ function run() {
         useLog ? "ln(Number of leaves)" : "Number of leaves (tip count) [count]",
         useLog,
         "#155e75",
-        "#7c3aed"
+        "#7c3aed",
+        leavesMTheoryValue  // Dynamic WBE prediction for N~M scaling
       );
     }
     
