@@ -419,7 +419,7 @@ function fitLineXY(points) {
   };
 }
 
-function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false, pointColor = "#155e75", lineColor = "#b45309") {
+function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false, pointColor = "#155e75", lineColor = "#b45309", theorySlope = NaN) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
@@ -478,6 +478,23 @@ function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false
   }
 
   const fit = fitLineXY(valid);
+
+  // Draw WBE theory reference line if provided.
+  if (Number.isFinite(theorySlope)) {
+    const yMean = valid.reduce((a, p) => a + p.y, 0) / valid.length;
+    const xMean = valid.reduce((a, p) => a + p.x, 0) / valid.length;
+    const theoryIntercept = yMean - theorySlope * xMean;
+    const y1Theory = theorySlope * xMin + theoryIntercept;
+    const y2Theory = theorySlope * xMax + theoryIntercept;
+    ctx.beginPath();
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = "#991b1b";
+    ctx.lineWidth = 1.5;
+    ctx.moveTo(sx(xMin), sy(y1Theory));
+    ctx.lineTo(sx(xMax), sy(y2Theory));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
   if (Number.isFinite(fit.slope)) {
     const y1 = fit.slope * fit.xMin + fit.intercept;
     const y2 = fit.slope * fit.xMax + fit.intercept;
@@ -581,7 +598,7 @@ function run() {
         useLog ? "ln(Number of leaves N_L)" : "Number of leaves N_L [count]",
         useLog,
         "#0f766e",
-        "#b45309"
+        "#b45309", 0.75  // WBE prediction
       );
     }
 
@@ -611,6 +628,7 @@ function run() {
       true
     );
 
+    const leavesDObsMinusWBE = Number.isFinite(leavesDObsRaw) ? (leavesDObsRaw - 0.75) : NaN;
     const muLeaves = params.furcation * params.a * params.b * params.b;
     const deltaLeaves = params.furcation * params.b * params.b;
     const boundaryTol = 0.02;
@@ -630,7 +648,7 @@ function run() {
     const delta = obs - theo;
     const asymDelta = Number.isFinite(asym.asymptoticSlope) ? (asym.asymptoticSlope - theo) : NaN;
     const bias = Number.isFinite(asym.finiteSizeBias) ? asym.finiteSizeBias : NaN;
-    ui.diagText.innerHTML = `<strong>Scale:</strong> ${useLog ? "Log-Log" : "Raw"}<br/><strong>K~M observed exponent:</strong> ${Number.isFinite(obs) ? obs.toFixed(4) : "NA"}<br/><strong>K~M theory exponent:</strong> ${Number.isFinite(theo) ? theo.toFixed(4) : "NA"}<br/><strong>K~M asymptotic (finite-size corrected):</strong> ${Number.isFinite(asym.asymptoticSlope) ? asym.asymptoticSlope.toFixed(4) : "NA (log mode only)"}<br/><strong>K~M observed - theory:</strong> ${Number.isFinite(delta) ? delta.toFixed(4) : "NA"}<br/><strong>K~M asymptotic - theory:</strong> ${Number.isFinite(asymDelta) ? asymDelta.toFixed(4) : "NA"}<br/><strong>Finite-size bias (largest order - asymptotic):</strong> ${Number.isFinite(bias) ? bias.toFixed(4) : "NA"}${Number.isFinite(asym.fitR2) ? `<br/><strong>Finite-size fit R²:</strong> ${asym.fitR2.toFixed(3)}` : ""}<br/><strong>N~M observed exponent (log):</strong> ${Number.isFinite(leavesMObs) ? leavesMObs.toFixed(4) : "NA"}<br/><strong>N~M theory exponent (log):</strong> ${Number.isFinite(leavesTheory.betaNvsM) ? leavesTheory.betaNvsM.toFixed(4) : "NA"}<br/><strong>N~D_eq observed exponent (log):</strong> ${Number.isFinite(leavesDObs) ? leavesDObs.toFixed(4) : "NA"}<br/><strong>N~D_eq theory exponent (log):</strong> ${Number.isFinite(leavesTheory.betaNvsDeq) ? leavesTheory.betaNvsDeq.toFixed(4) : "NA"}${warningHtml}`;
+    ui.diagText.innerHTML = `<strong>Scale:</strong> ${useLog ? "Log-Log" : "Raw"}<br/><strong>K~M observed exponent:</strong> ${Number.isFinite(obs) ? obs.toFixed(4) : "NA"}<br/><strong>K~M theory exponent:</strong> ${Number.isFinite(theo) ? theo.toFixed(4) : "NA"}<br/><strong>K~M asymptotic (finite-size corrected):</strong> ${Number.isFinite(asym.asymptoticSlope) ? asym.asymptoticSlope.toFixed(4) : "NA (log mode only)"}<br/><strong>K~M observed - theory:</strong> ${Number.isFinite(delta) ? delta.toFixed(4) : "NA"}<br/><strong>K~M asymptotic - theory:</strong> ${Number.isFinite(asymDelta) ? asymDelta.toFixed(4) : "NA"}<br/><strong>Finite-size bias (largest order - asymptotic):</strong> ${Number.isFinite(bias) ? bias.toFixed(4) : "NA"}${Number.isFinite(asym.fitR2) ? `<br/><strong>Finite-size fit R²:</strong> ${asym.fitR2.toFixed(3)}` : ""}<br/><strong>N~M observed exponent (log):</strong> ${Number.isFinite(leavesMObs) ? leavesMObs.toFixed(4) : "NA"}<br/><strong>N~M theory exponent (log):</strong> ${Number.isFinite(leavesTheory.betaNvsM) ? leavesTheory.betaNvsM.toFixed(4) : "NA"}<br/><strong>N~D_eq observed exponent (log-log fit):</strong> ${Number.isFinite(leavesDObs) ? leavesDObs.toFixed(4) : "NA"}<br/><strong>N~D_eq WBE prediction (exponent):</strong> 0.7500<br/><strong>N~D_eq observed - WBE:</strong> ${Number.isFinite(leavesDObsMinusWBE) ? leavesDObsMinusWBE.toFixed(4) : "NA"}<br/><strong>N~D_eq theory exponent (asymptotic):</strong> ${Number.isFinite(leavesTheory.betaNvsDeq) ? leavesTheory.betaNvsDeq.toFixed(4) : "NA"}${warningHtml}`;
   } catch (e) {
     console.error("Error in run():", e);
     ui.diagText.textContent = "Error: " + e.message;
