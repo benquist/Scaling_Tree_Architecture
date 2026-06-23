@@ -282,6 +282,33 @@ function theoreticalLeavesExponents(n, a, b) {
   return { betaNvsM, betaNvsDeq };
 }
 
+// Detect regime class and compute distances from boundaries
+function detectRegime(n, a, b) {
+  const mu = n * a * b * b;
+  const kappa = n * Math.pow(b, 4) / a;
+  const delta = n * b * b;
+  const boundaryTol = 0.02;
+  
+  const muDist = Math.abs(Math.log(mu));
+  const deltaDist = Math.abs(Math.log(delta));
+  const isGrowing = mu > 1 && kappa > 1;
+  const isKSat = mu > 1 && kappa <= 1;
+  const isMSat = mu <= 1;
+  const isSingular = delta <= 0.5 || delta >= 2 || deltaDist < boundaryTol;
+  
+  let regimeClass = "unknown";
+  if (isSingular) regimeClass = "singular";
+  else if (isMSat) regimeClass = "M-saturation";
+  else if (isKSat) regimeClass = "K-saturation";
+  else if (isGrowing) regimeClass = "growing";
+  
+  let validity = "valid";
+  if (isSingular || isMSat || (muDist < boundaryTol)) validity = "invalid";
+  else if (muDist < 2 * boundaryTol || deltaDist < 2 * boundaryTol) validity = "limited";
+  
+  return { regimeClass, validity, mu, kappa, delta, muDist, deltaDist };
+}
+
 function drawTree(svg, tree, width = 900, height = 420) {
   while (svg.firstChild) svg.removeChild(svg.firstChild);
   
@@ -577,6 +604,7 @@ function run() {
     const obs = fitSlope(points, true);
     const theo = theoreticalKvsMExponent(params.furcation, params.a, params.b);
     const asym = estimateAsymptoticSlope(pointsByOrder, ordersForScaling, useLog);
+    const leavesTheory = theoreticalLeavesExponents(params.furcation, params.a, params.b);
 
     if (ui.scalingCanvas && ui.scalingCanvas.getContext) {
       drawScaling(ui.scalingCanvas, points, obs, theo, asym.asymptoticSlope, useLog);
@@ -590,6 +618,8 @@ function run() {
         return { x: xMean, y: yMean, order: ord };
       }).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x > 0 && p.y > 0);
 
+      // Use dynamic theory value for reference line (parameter-dependent formula)
+      const leavesTheoryValue = leavesTheory.betaNvsDeq;
       drawLeavesScatter(
         ui.leavesDiameterCanvas,
         leavesByOrder,
@@ -598,7 +628,8 @@ function run() {
         useLog ? "ln(Number of leaves N_L)" : "Number of leaves N_L [count]",
         useLog,
         "#0f766e",
-        "#b45309", 0.75  // WBE prediction
+        "#b45309",
+        leavesTheoryValue  // Dynamic WBE prediction based on parameters
       );
     }
 
@@ -616,7 +647,7 @@ function run() {
       );
     }
     
-    const leavesTheory = theoreticalLeavesExponents(params.furcation, params.a, params.b);
+    const regime = detectRegime(params.furcation, params.a, params.b);
     const leavesMObsRaw = fitSlope(reps.map(m => ({ x: m.mProxy, y: m.nTips })), true);
     const leavesDObsRaw = fitSlope(
       ordersForScaling.map(ord => {
@@ -628,27 +659,45 @@ function run() {
       true
     );
 
-    const leavesDObsMinusWBE = Number.isFinite(leavesDObsRaw) ? (leavesDObsRaw - 0.75) : NaN;
-    const muLeaves = params.furcation * params.a * params.b * params.b;
-    const deltaLeaves = params.furcation * params.b * params.b;
     const boundaryTol = 0.02;
-    const warnings = [];
-    if (muLeaves <= 1 || Math.abs(Math.log(muLeaves)) <= boundaryTol) {
-      warnings.push("N~M is in/near M-saturation boundary (mu <= 1 or ln(mu) ~ 0); exponent is undefined/unstable.");
+    const leavesMObs = (regime.mu > 1 && regime.muDist > boundaryTol) ? leavesMObsRaw : NaN;
+    const leavesDObs = (regime.deltaDist > boundaryTol) ? leavesDObsRaw : NaN;
+    
+    // Only compute deltas if both base metrics are valid (fixes NA/delta contradiction)
+    const kMDelta = (Number.isFinite(obs) && Number.isFinite(theo)) ? (obs - theo) : NaN;
+    const kMAsymDelta = (Number.isFinite(asym.asymptoticSlope) && Number.isFinite(theo)) ? (asym.asymptoticSlope - theo) : NaN;
+    const leavesDDelta = (Number.isFinite(leavesDObs) && Number.isFinite(leavesTheory.betaNvsDeq)) ? (leavesDObs - leavesTheory.betaNvsDeq) : NaN;
+    
+    // Build compact regime-gated diagnostics panel
+    const regimeColors = { 'growing': '10b981', 'K-saturation': 'f59e0b', 'M-saturation': 'ef4444', 'singular': '6b7280', 'unknown': 'e5e7eb' };
+    const borderColor = regimeColors[regime.regimeClass] || 'e5e7eb';
+    let diagHtml = `<div style="background:#f9f9f9; padding:8px; border-left:3px solid #${borderColor}; margin-bottom:8px;">`;
+    diagHtml += `<strong>Regime:</strong> ${regime.regimeClass} | <strong>Validity:</strong> ${regime.validity}<br/>`;
+    diagHtml += `<strong>μ=${regime.mu.toFixed(3)}, κ=${regime.kappa.toFixed(3)}, δ=${regime.delta.toFixed(3)}</strong><br/>`;
+    
+    // Core K~M diagnostics (always shown)
+    diagHtml += `<strong style="color:#666; font-size:0.9em; margin-top:6px; display:block;">Conductance vs Mass (K~M):</strong>`;
+    diagHtml += `Observed: ${Number.isFinite(obs) ? obs.toFixed(4) : "—"} | Theory: ${Number.isFinite(theo) ? theo.toFixed(4) : "—"}${Number.isFinite(kMDelta) ? ` | Δ: ${kMDelta.toFixed(4)}` : ""}<br/>`;
+    
+    // Leaves exponents (shown only if valid)
+    if (regime.validity !== "invalid") {
+      diagHtml += `<strong style="color:#666; font-size:0.9em; margin-top:6px; display:block;">Leaves~Mass (N~M):</strong>`;
+      diagHtml += `Observed: ${Number.isFinite(leavesMObs) ? leavesMObs.toFixed(4) : "—"} | Theory: ${Number.isFinite(leavesTheory.betaNvsM) ? leavesTheory.betaNvsM.toFixed(4) : "—"}<br/>`;
+      
+      diagHtml += `<strong style="color:#666; font-size:0.9em; margin-top:6px; display:block;">Leaves~Diameter (N~D_eq):</strong>`;
+      diagHtml += `Observed: ${Number.isFinite(leavesDObs) ? leavesDObs.toFixed(4) : "—"} | Theory: ${Number.isFinite(leavesTheory.betaNvsDeq) ? leavesTheory.betaNvsDeq.toFixed(4) : "—"}${Number.isFinite(leavesDDelta) ? ` | Δ: ${leavesDDelta.toFixed(4)}` : ""}<br/>`;
+    } else {
+      diagHtml += `<em style="color:#999; font-size:0.9em;">Leaves exponents not estimable in boundary regimes.</em><br/>`;
     }
-    if (Math.abs(Math.log(deltaLeaves)) <= boundaryTol) {
-      warnings.push("N~D_eq is near singular boundary (n*b^2 ~ 1); exponent diverges and is not diagnostically meaningful.");
-    }
-    const leavesMObs = (muLeaves > 1 && Math.abs(Math.log(muLeaves)) > boundaryTol) ? leavesMObsRaw : NaN;
-    const leavesDObs = (Math.abs(Math.log(deltaLeaves)) > boundaryTol) ? leavesDObsRaw : NaN;
-    const warningHtml = warnings.length > 0
-      ? `<br/><strong>Boundary warning:</strong> ${warnings.join(" ")}`
-      : "";
-
-    const delta = obs - theo;
-    const asymDelta = Number.isFinite(asym.asymptoticSlope) ? (asym.asymptoticSlope - theo) : NaN;
-    const bias = Number.isFinite(asym.finiteSizeBias) ? asym.finiteSizeBias : NaN;
-    ui.diagText.innerHTML = `<strong>Scale:</strong> ${useLog ? "Log-Log" : "Raw"}<br/><strong>K~M observed exponent:</strong> ${Number.isFinite(obs) ? obs.toFixed(4) : "NA"}<br/><strong>K~M theory exponent:</strong> ${Number.isFinite(theo) ? theo.toFixed(4) : "NA"}<br/><strong>K~M asymptotic (finite-size corrected):</strong> ${Number.isFinite(asym.asymptoticSlope) ? asym.asymptoticSlope.toFixed(4) : "NA (log mode only)"}<br/><strong>K~M observed - theory:</strong> ${Number.isFinite(delta) ? delta.toFixed(4) : "NA"}<br/><strong>K~M asymptotic - theory:</strong> ${Number.isFinite(asymDelta) ? asymDelta.toFixed(4) : "NA"}<br/><strong>Finite-size bias (largest order - asymptotic):</strong> ${Number.isFinite(bias) ? bias.toFixed(4) : "NA"}${Number.isFinite(asym.fitR2) ? `<br/><strong>Finite-size fit R²:</strong> ${asym.fitR2.toFixed(3)}` : ""}<br/><strong>N~M observed exponent (log):</strong> ${Number.isFinite(leavesMObs) ? leavesMObs.toFixed(4) : "NA"}<br/><strong>N~M theory exponent (log):</strong> ${Number.isFinite(leavesTheory.betaNvsM) ? leavesTheory.betaNvsM.toFixed(4) : "NA"}<br/><strong>N~D_eq observed exponent (log-log fit):</strong> ${Number.isFinite(leavesDObs) ? leavesDObs.toFixed(4) : "NA"}<br/><strong>N~D_eq WBE prediction (exponent):</strong> 0.7500<br/><strong>N~D_eq observed - WBE:</strong> ${Number.isFinite(leavesDObsMinusWBE) ? leavesDObsMinusWBE.toFixed(4) : "NA"}<br/><strong>N~D_eq theory exponent (asymptotic):</strong> ${Number.isFinite(leavesTheory.betaNvsDeq) ? leavesTheory.betaNvsDeq.toFixed(4) : "NA"}${warningHtml}`;
+    
+    // Collapsible advanced diagnostics
+    diagHtml += `<details style="margin-top:6px;"><summary style="cursor:pointer; color:#666; font-size:0.85em;">Advanced metrics</summary>`;
+    diagHtml += `<div style="margin-left:10px; margin-top:4px; font-size:0.9em;">`;
+    diagHtml += `K~M asymptotic: ${Number.isFinite(asym.asymptoticSlope) ? asym.asymptoticSlope.toFixed(4) : "—"} | Finite-size bias: ${Number.isFinite(asym.finiteSizeBias) ? asym.finiteSizeBias.toFixed(4) : "—"}${Number.isFinite(asym.fitR2) ? ` | R²: ${asym.fitR2.toFixed(3)}` : ""}<br/>`;
+    diagHtml += `Scale: ${useLog ? "Log-Log" : "Raw"}`;
+    diagHtml += `</div></details></div>`;
+    
+    ui.diagText.innerHTML = diagHtml;
   } catch (e) {
     console.error("Error in run():", e);
     ui.diagText.textContent = "Error: " + e.message;
