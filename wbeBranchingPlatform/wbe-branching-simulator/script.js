@@ -446,7 +446,7 @@ function fitLineXY(points) {
   };
 }
 
-function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false, pointColor = "#155e75", lineColor = "#b45309", theorySlope = NaN) {
+function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false, pointColor = "#155e75", lineColor = "#b45309", theorySlope = NaN, connectOrderedPoints = true) {
   const ctx = canvas.getContext("2d");
   const w = canvas.width;
   const h = canvas.height;
@@ -485,9 +485,9 @@ function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false
     ctx.fill();
   });
 
-  // Connect points from smallest to largest x so size progression is explicit.
+  // Connect points only when explicitly requested (helps avoid false curvature impressions).
   const ordered = [...valid].sort((a, b) => a.x - b.x);
-  if (ordered.length >= 2) {
+  if (connectOrderedPoints && ordered.length >= 2) {
     ctx.beginPath();
     ctx.strokeStyle = "#64748b";
     ctx.lineWidth = 1.5;
@@ -506,8 +506,8 @@ function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false
 
   const fit = fitLineXY(valid);
 
-  // Draw WBE theory reference line if provided.
-  if (Number.isFinite(theorySlope)) {
+  // Draw WBE reference only in log-log mode where exponent interpretation is valid.
+  if (useLog && Number.isFinite(theorySlope)) {
     const yMean = valid.reduce((a, p) => a + p.y, 0) / valid.length;
     const xMean = valid.reduce((a, p) => a + p.x, 0) / valid.length;
     const theoryIntercept = yMean - theorySlope * xMean;
@@ -534,7 +534,8 @@ function drawLeavesScatter(canvas, points, title, xLabel, yLabel, useLog = false
 
     ctx.fillStyle = "#334155";
     ctx.font = "12px Avenir Next, sans-serif";
-    ctx.fillText(`Log-log fit slope: ${fit.slope.toFixed(3)}`, padLeft + 8, padTop + 14);
+    const slopeLabel = useLog ? "Log-log fit slope" : "Fit slope";
+    ctx.fillText(`${slopeLabel}: ${fit.slope.toFixed(3)}`, padLeft + 8, padTop + 14);
   }
 
   ctx.fillStyle = "#334155";
@@ -561,13 +562,16 @@ function run() {
     };
     const maxOrder = Number(ui.maxOrder.value);
     const useLog = ui.scaleMode ? (ui.scaleMode.value === "log") : true;
+    // Keep deep runs responsive by limiting effective depth when furcation is high.
+    const maxDepthForSimulation = params.furcation >= 5 ? 12 : (params.furcation === 4 ? 14 : 16);
+    const depthForPlots = Math.min(maxOrder, maxDepthForSimulation);
 
     // Draw tree at max order
-    const maxTree = simulateTree(params, maxOrder, maxOrder * 1000);
+    const maxTree = simulateTree(params, depthForPlots, depthForPlots * 1000);
     drawTree(ui.treeSvg, maxTree, 900, 420);
 
     // Generate comparison trees at different orders
-    const comparisonOrders = [4, 6, 8, 10, 12].filter(o => o <= maxOrder);
+    const comparisonOrders = [4, 6, 8, 10, 12, 14, 16].filter(o => o <= depthForPlots);
     ui.treeComparison.innerHTML = "";
     
     comparisonOrders.forEach(ord => {
@@ -591,7 +595,11 @@ function run() {
 
     // Generate scaling data
     const reps = [];
-    const ordersForScaling = [4, 5, 6, 7, 8, 9, 10, 11, 12].filter(o => o <= maxOrder);
+    const minScalingOrder = 4;
+    const ordersForScaling = [];
+    for (let o = minScalingOrder; o <= depthForPlots; o += 1) {
+      ordersForScaling.push(o);
+    }
     for (let ord of ordersForScaling) {
       for (let r = 0; r < 15; r += 1) {
         const tr = simulateTree(params, ord, ord * 1000 + r);
@@ -629,12 +637,20 @@ function run() {
         useLog,
         "#0f766e",
         "#b45309",
-        leavesTheoryValue  // Dynamic WBE prediction based on parameters
+        leavesTheoryValue,  // Dynamic WBE prediction based on parameters
+        true
       );
     }
 
     if (ui.leavesVolumeCanvas && ui.leavesVolumeCanvas.getContext) {
-      const leavesVsVolume = reps.map(m => ({ x: m.mProxy, y: m.nTips }));
+      // Use order-mean points so the panel diagnoses power-law scaling across generations,
+      // rather than replicate-level noise within each generation.
+      const leavesVsVolume = ordersForScaling.map(ord => {
+        const subset = reps.filter(m => m.order === ord);
+        const xMean = subset.reduce((acc, m) => acc + m.mProxy, 0) / Math.max(1, subset.length);
+        const yMean = subset.reduce((acc, m) => acc + m.nTips, 0) / Math.max(1, subset.length);
+        return { x: xMean, y: yMean, order: ord };
+      }).filter(p => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x > 0 && p.y > 0);
       // Use dynamic theory value for reference line (N~M exponent)
       const leavesMTheoryValue = leavesTheory.betaNvsM;
       drawLeavesScatter(
@@ -646,7 +662,8 @@ function run() {
         useLog,
         "#155e75",
         "#7c3aed",
-        leavesMTheoryValue  // Dynamic WBE prediction for N~M scaling
+        leavesMTheoryValue,  // Dynamic WBE prediction for N~M scaling
+        false
       );
     }
     
@@ -760,20 +777,25 @@ function applyClassicalWBEMode() {
 // Stable Diagnostics Mode: sets parameters safely away from singular boundaries
 // K~M grows with mass; N~M and N~D_eq have well-defined finite exponents.
 function applyStableDiagnosticsMode() {
-  // Safe parameter values: away from μ~1 and δ~1 singularities
-  // a = 0.90, b = 0.80 gives μ = 2*0.90*0.64 = 1.152, δ = 1.28
+  // Use a numerically stable, theory-aligned pair for n=2 where
+  // beta(N~M) = ln(2)/ln(mu) is close to 0.75 (mu ~= 2.52).
+  // a = 1.30, b = 0.984 gives mu = 2*1.30*0.984^2 ~= 2.517.
   
-  ui.aRatio.value = "0.900";
-  outputs.aRatio.textContent = "0.900";
+  ui.aRatio.value = "1.300";
+  outputs.aRatio.textContent = "1.300";
   
-  ui.bRatio.value = "0.800";
-  outputs.bRatio.textContent = "0.800";
+  ui.bRatio.value = "0.984";
+  outputs.bRatio.textContent = "0.984";
   
   ui.furcation.value = "2";
   outputs.furcation.textContent = "2";
   
   ui.asymStrength.value = "0";
   outputs.asymStrength.textContent = "0.00";
+
+  // Default to deeper trees so users can inspect more generations out of the box.
+  ui.maxOrder.value = "14";
+  outputs.maxOrder.textContent = "14";
   
   // Uncheck the competing preset
   const classicalCheckbox = document.getElementById("classicalWBEMode");
